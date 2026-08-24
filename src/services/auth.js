@@ -1,3 +1,5 @@
+import { estadoUsuario } from '@/stores/usuario';
+
 export async function register(login, senha) {
   const res = await fetch('http://localhost:3001/api/register', {
     method: 'POST',
@@ -9,6 +11,8 @@ export async function register(login, senha) {
   return data;
 }
 
+// Retorna { login, token }. O token deve ser guardado com definirUsuarioLogado
+// para ser reenviado nas próximas chamadas autenticadas.
 export async function login(login_, senha) {
   const res = await fetch('http://localhost:3001/api/login', {
     method: 'POST',
@@ -17,5 +21,33 @@ export async function login(login_, senha) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Erro ao fazer login');
+  return data;
+}
+
+// Só o dono da conta pode alterar seus próprios dados, então enviamos o
+// token JWT guardado em estadoUsuario no header Authorization.
+export async function updateUser(loginAtual, dados) {
+  const res = await fetch(`http://localhost:3001/api/usuarios/${loginAtual}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${estadoUsuario.token}`,
+    },
+    body: JSON.stringify(dados),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Erro ao atualizar usuário');
+  return data;
+}
+
+export async function deleteUser(login) {
+  const res = await fetch(`http://localhost:3001/api/usuarios/${login}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${estadoUsuario.token}`,
+    },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Erro ao excluir usuário');
   return data;
 }

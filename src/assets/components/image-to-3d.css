@@ -1,0 +1,98 @@
+/* Estilos do componente ImageTo3D (uma imagem -> modelo 3D, com opção de
+   webcam) — CSS puro, sem Tailwind. */
+
+.image-to-3d {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.image-mode-toggle {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.image-file-label {
+  display: block;
+}
+
+.image-file-label-text {
+  display: block;
+  font-size: 0.875rem;
+  color: #9ca3af;
+  margin-bottom: 0.5rem;
+}
+
+/* Input de arquivo nativo, estilizado via ::file-selector-button
+   (equivalente em CSS puro aos utilitários "file:" do Tailwind). */
+.image-file-input {
+  display: block;
+  width: 100%;
+  font-size: 0.875rem;
+  color: #d1d5db;
+  cursor: pointer;
+}
+
+.image-file-input::file-selector-button {
+  margin-right: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 0;
+  background-color: var(--color-accent);
+  color: var(--color-bg);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.image-file-input:hover::file-selector-button {
+  background-color: var(--color-accent-hover);
+}
+
+.image-webcam {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.image-webcam-video {
+  width: 100%;
+  max-width: 24rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+}
+
+.image-webcam-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.image-preview {
+  max-width: 20rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+}
+
+.image-progress {
+  font-size: 0.875rem;
+  color: #9ca3af;
+}
+
+.image-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.image-download-link {
+  display: inline-block;
+  font-size: 0.875rem;
+  color: var(--color-accent-hover);
+}
+
+.image-download-link:hover {
+  text-decoration: underline;
+}

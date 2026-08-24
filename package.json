@@ -10,8 +10,7 @@
   },
   "dependencies": {
     "@google/model-viewer": "^4.3.1",
-    "bcrypt": "^6.0.0",
-    "pg": "^8.23.0",
+    "qrcode": "^1.5.4",
     "vue": "^3.5.40",
     "vue-router": "^5.2.0"
   },

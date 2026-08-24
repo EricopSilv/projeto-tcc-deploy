@@ -1,21 +1,23 @@
 <template>
- <div class="max-w-3xl mx-auto px-4 py-10">
-    <h1 class="text-3xl font-bold text-center mb-2">Gerador de Modelos 3D</h1>
-    <p class="text-center text-gray-400 mb-10">Crie modelos 3D a partir de texto ou de uma imagem</p>
+  <div class="gerar3d-menu-page">
+    <h1 class="gerar3d-menu-title">Gerador de Modelos 3D</h1>
+    <p class="gerar3d-menu-subtitle">Escolha como você quer criar o seu modelo</p>
 
-    <section class="bg-[#1a1d27] border border-[#2a2e38] rounded-2xl p-6 mb-6">
-      <h2 class="text-lg font-semibold mb-4 text-emerald-400">A partir de texto</h2>
-      <Tripo3D />
-    </section>
+    <RouterLink :to="{ name: 'gerar-3d-texto' }" class="btn-primary gerar3d-menu-link">
+      Criar imagem a partir de texto
+    </RouterLink>
 
-    <section class="bg-[#1a1d27] border border-[#2a2e38] rounded-2xl p-6">
-      <h2 class="text-lg font-semibold mb-4 text-emerald-400">A partir de imagem</h2>
-      <ImageTo3D />
-    </section>
+    <RouterLink :to="{ name: 'gerar-3d-imagem' }" class="btn-primary gerar3d-menu-link">
+      Criar modelo 3D a partir de uma imagem
+    </RouterLink>
+
+    <RouterLink :to="{ name: 'gerar-3d-multi-imagem' }" class="btn-primary gerar3d-menu-link">
+      Criar modelo 3D a partir de várias imagens
+    </RouterLink>
   </div>
 </template>
 
 <script setup>
-import Tripo3D from '@/components/Tripo3D.vue';
-import ImageTo3D from '@/components/ImageTo3D.vue';
+import '@/assets/pages/gerar-3d-menu.css';
+import { RouterLink } from 'vue-router';
 </script>

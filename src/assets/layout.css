@@ -1,0 +1,78 @@
+/* Estilos do layout principal (menu lateral + logo) — CSS puro, sem Tailwind.
+   Usado pelo App.vue, que é o "esqueleto" que envolve todas as páginas.
+
+   As cores usam as variáveis definidas em src/assets/main.css (--color-bg,
+   --color-surface, --color-border, --color-accent, --color-accent-hover),
+   então trocar uma cor lá também atualiza o menu automaticamente. */
+
+/* ---------- Menu lateral (sidebar) ---------- */
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10;
+
+  width: 14rem;       /* largura do menu — repetida em .app-content abaixo */
+  height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+
+  background-color: rgba(26, 29, 39, 0.9); /* var(--color-surface) com transparência */
+  backdrop-filter: blur(8px);
+  border-right: 1px solid var(--color-border);
+}
+
+/* ---------- Logo ---------- */
+
+.sidebar-logo-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.sidebar-logo {
+  width: 6rem;
+  height: 6rem;
+  object-fit: contain; /* mantém a proporção da imagem, sem esticar */
+}
+
+/* ---------- Links do menu ---------- */
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sidebar-link {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #d1d5db;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebar-link:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Aplicada automaticamente pelo Vue Router no link da página atual
+   (via active-class="sidebar-link-active" no App.vue). Precisa vir DEPOIS
+   de .sidebar-link no arquivo pra ganhar a cor quando as duas classes
+   estiverem juntas no mesmo link. */
+.sidebar-link-active {
+  color: var(--color-accent-hover);
+  background-color: rgba(52, 211, 153, 0.1);
+}
+
+/* ---------- Área de conteúdo das páginas ---------- */
+
+.app-content {
+  margin-left: 14rem; /* mesma largura do .sidebar, pra não ficar por baixo do menu */
+}

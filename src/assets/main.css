@@ -1,15 +1,16 @@
 @import './base.css';
 @import "tailwindcss";
 
-:root{
-  --bg: #0f1117;
-  --surface: #1a1d27;
-  --border: #2a2e38;
-  --accent: #10b981;
+:root {
+  --color-bg: #0f1117;
+  --color-surface: #1a1d27;
+  --color-border: #2a2e38;
+  --color-accent: #10b981;
+  --color-accent-hover: #34d399;
 }
 
 html, body{
-  background-color: var(--bg);
+  background-color: var(--color-bg);
   color: #e5e7eb;
 }
 
@@ -31,4 +32,81 @@ a, .green{
   a:hover{
     background-color: rgba(16, 185, 129, 0.15);
   }
+}
+
+/* ---------- Botões e campos compartilhados (CSS puro, sem Tailwind) ----------
+   Usados em várias páginas/componentes do projeto: .btn-primary, .btn-secondary,
+   .btn-danger e .input-field. Mudar uma cor ou espaçamento aqui reflete em
+   todo lugar que usa essas classes. */
+
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.btn-primary:hover {
+  background-color: var(--color-accent-hover);
+}
+
+.btn-secondary {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #e5e7eb;
+  border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.btn-danger {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover {
+  background-color: rgba(239, 68, 68, 0.2);
+}
+
+.input-field {
+  width: 100%;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  color: #f3f4f6;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-field::placeholder {
+  color: #6b7280;
+}
+
+.input-field:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
 }

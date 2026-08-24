@@ -1,0 +1,47 @@
+/* Estilos da página "Criar imagem a partir de texto" — CSS puro, sem Tailwind. */
+
+.texto-imagem-page {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1rem;
+}
+
+.texto-imagem-wrap {
+  width: 100%;
+  max-width: 42rem;
+}
+
+.texto-imagem-back {
+  display: inline-block;
+  font-size: 0.875rem;
+  color: #9ca3af;
+  margin-bottom: 1.5rem;
+  transition: color 0.2s;
+}
+
+.texto-imagem-back:hover {
+  color: var(--color-accent-hover);
+}
+
+.texto-imagem-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  padding: 1.5rem;
+}
+
+.texto-imagem-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 0.25rem;
+}
+
+.texto-imagem-subtitle {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.875rem;
+  margin-bottom: 1.5rem;
+}

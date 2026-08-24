@@ -1,25 +1,38 @@
 <template>
-  <div>
-    <input v-model="prompt" placeholder="Descreva a imagem que você quer gerar..." />
-    <button @click="generateImage" :disabled="loadingImage">Gerar Imagem</button>
-    <p v-if="loadingImage">Gerando imagem... {{ imageProgress }}%</p>
+  <div class="tripo3d">
+    <div class="tripo3d-form">
+      <input v-model="prompt" placeholder="Descreva a imagem que você quer gerar..." class="input-field tripo3d-input" />
+      <button @click="generateImage" :disabled="loadingImage" class="btn-primary tripo3d-submit-btn">
+        Gerar Imagem
+      </button>
+    </div>
+    <p v-if="loadingImage" class="tripo3d-progress">Gerando imagem... {{ imageProgress }}%</p>
 
-    <div v-if="imageUrl">
-      <img :src="imageUrl" alt="Imagem gerada" style="max-width: 300px; border-radius: 12px;" />
+    <div v-if="imageUrl" class="tripo3d-result">
+      <img :src="imageUrl" alt="Imagem gerada" class="tripo3d-image" />
 
-      <br><br>
-      <button @click="generateModel" :disabled="loadingModel">Gerar Modelo 3D a partir da imagem</button>
-      <p v-if="loadingModel">Gerando modelo 3D... {{ modelProgress }}%</p>
+      <div>
+        <button @click="generateModel" :disabled="loadingModel" class="btn-primary">
+          Gerar Modelo 3D a partir da imagem
+        </button>
+        <p v-if="loadingModel" class="tripo3d-model-progress">Gerando modelo 3D... {{ modelProgress }}%</p>
+      </div>
 
-      <div v-if="modelUrl">
+      <div v-if="modelUrl" class="tripo3d-model">
         <ModelViewer :src="proxiedModelUrl" />
-        <a :href="modelUrl" target="_blank">Baixar arquivo .glb</a>
+        <a :href="modelUrl" target="_blank" class="tripo3d-download-link">
+          Baixar arquivo .glb
+        </a>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+// Nome do arquivo é histórico (a ideia original era usar a API da Tripo),
+// mas hoje esse fluxo (texto -> imagem -> modelo 3D) roda todo via Meshy,
+// igual o resto do projeto — ver services/meshy.js.
+import '@/assets/components/tripo3d.css';
 import { ref, computed } from 'vue';
 import { generateImage as gerarImagemApi, checkTextImageTask, generate3DFromImage, checkImageTask } from '@/services/meshy';
 import ModelViewer from './ModelViewer.vue';

@@ -1,25 +1,34 @@
 <template>
-  <div class="max-w-sm mx-auto px-4 py-10">
-    <h1 class="text-2xl font-bold text-center mb-6">{{ modoCadastro ? 'Cadastro' : 'Login' }}</h1>
+  <div class="login-page">
+    <div class="login-card">
+      <h1 class="login-title">{{ modoCadastro ? 'Cadastro' : 'Login' }}</h1>
 
-    <input v-model="loginInput" placeholder="Login" /><br><br>
-    <input v-model="senha" type="password" placeholder="Senha" /><br><br>
+      <div class="login-fields">
+        <input v-model="loginInput" placeholder="Login" class="login-input" />
+        <input v-model="senha" type="password" placeholder="Senha" class="login-input" />
+      </div>
 
-    <button @click="enviar">{{ modoCadastro ? 'Cadastrar' : 'Entrar' }}</button>
-    <br><br>
+      <button @click="enviar" class="login-button login-button-primary">
+        {{ modoCadastro ? 'Cadastrar' : 'Entrar' }}
+      </button>
 
-    <button @click="modoCadastro = !modoCadastro">
-      {{ modoCadastro ? 'Já tenho conta, fazer login' : 'Não tenho conta, cadastrar' }}
-    </button>
+      <button @click="modoCadastro = !modoCadastro" class="login-button login-button-secondary">
+        {{ modoCadastro ? 'Já tenho conta, fazer login' : 'Não tenho conta, cadastrar' }}
+      </button>
 
-    <p v-if="mensagem">{{ mensagem }}</p>
+      <p v-if="mensagem" class="login-message">{{ mensagem }}</p>
+    </div>
   </div>
 </template>
 
 <script setup>
+import '@/assets/pages/login.css';
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { register, login as loginApi } from '@/services/auth';
+import { definirUsuarioLogado } from '@/stores/usuario';
 
+const router = useRouter();
 const loginInput = ref('');
 const senha = ref('');
 const modoCadastro = ref(false);
@@ -34,7 +43,8 @@ async function enviar() {
       modoCadastro.value = false;
     } else {
       const data = await loginApi(loginInput.value, senha.value);
-      mensagem.value = `Bem-vindo(a), ${data.login}!`;
+      definirUsuarioLogado(data.login, data.token);
+      router.push('/perfil');
     }
   } catch (err) {
     mensagem.value = err.message;

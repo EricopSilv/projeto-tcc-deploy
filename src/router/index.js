@@ -1,26 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
+import { estadoUsuario } from '../stores/usuario'
+
+// Rotas que só fazem sentido pra quem já está logado.
+const ROTAS_PROTEGIDAS = ['perfil', 'editar-perfil']
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      name: 'home',
-      component: HomeView,
-    },
-    {
-      path: '/about',
-      name: 'about',
-      // route level code-splitting
-      // this generates a separate chunk (About.[hash].js) for this route
-      // which is lazy-loaded when the route is visited.
-      component: () => import('../views/AboutView.vue'),
-    },
-    {
-      path: '/chat',
-      name: 'chat',
-      component: () => import('../views/ChatView.vue'),
+      redirect: '/login',
     },
     {
       path: '/gerar-3d',
@@ -28,11 +17,54 @@ const router = createRouter({
       component: () => import('../views/Tripo3DView.vue'),
     },
     {
+      path: '/gerar-3d/texto',
+      name: 'gerar-3d-texto',
+      component: () => import('../views/TextoParaImagemView.vue'),
+    },
+    {
+      path: '/gerar-3d/imagem',
+      name: 'gerar-3d-imagem',
+      component: () => import('../views/ImagemParaModeloView.vue'),
+    },
+    {
+      path: '/gerar-3d/multi-imagem',
+      name: 'gerar-3d-multi-imagem',
+      component: () => import('../views/MultiImagemParaModeloView.vue'),
+    },
+    {
       path: '/login',
-      nome: 'login',
+      name: 'login',
       component: () => import('../views/LoginView.vue'),
     },
+    {
+      path: '/perfil',
+      name: 'perfil',
+      component: () => import('../views/ProfileView.vue'),
+    },
+    {
+      path: '/perfil/editar',
+      name: 'editar-perfil',
+      component: () => import('../views/EditProfileView.vue'),
+    },
+    // Qualquer caminho que não bate com nenhuma rota acima cai aqui.
+    {
+      path: '/captura-movel/:sessionId',
+      name: 'captura-movel',
+      component: () => import('../views/CapturaMovelView.vue'),
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/gerar-3d',
+    },
   ],
+})
+
+// Sem isso, dava pra abrir /perfil ou /perfil/editar direto pela URL mesmo
+// sem estar logado, e a tela quebrava (estadoUsuario.login vindo undefined).
+router.beforeEach((to) => {
+  if (ROTAS_PROTEGIDAS.includes(to.name) && !estadoUsuario.login) {
+    return { name: 'login' }
+  }
 })
 
 export default router

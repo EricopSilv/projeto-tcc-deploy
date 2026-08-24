@@ -1,0 +1,31 @@
+/* Estilos do menu "Gerar 3D" (Tripo3DView.vue) — CSS puro, sem Tailwind. */
+
+.gerar3d-menu-page {
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0 1rem;
+}
+
+.gerar3d-menu-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.gerar3d-menu-subtitle {
+  text-align: center;
+  color: #9ca3af;
+  margin-bottom: 1.5rem;
+}
+
+/* Os links usam a classe global .btn-primary (main.css); aqui só ajustamos
+   largura e centralização do texto, já que são <RouterLink>, não <button>. */
+.gerar3d-menu-link {
+  width: 16rem;
+  text-align: center;
+}

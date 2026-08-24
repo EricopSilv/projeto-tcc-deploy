@@ -1,0 +1,41 @@
+/* Estilos da página de Perfil — CSS puro, sem Tailwind. */
+
+.profile-page {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1rem;
+}
+
+.profile-card {
+  width: 100%;
+  max-width: 24rem;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.profile-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+}
+
+.profile-highlight {
+  color: var(--color-accent-hover);
+}
+
+.profile-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Os botões usam as classes globais .btn-primary/.btn-secondary (main.css),
+   aqui só garantimos que eles ocupam a largura toda do card. */
+.profile-actions > * {
+  width: 100%;
+}
