@@ -1,8 +1,19 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { estadoUsuario } from '../stores/usuario'
 
-// Rotas que só fazem sentido pra quem já está logado.
-const ROTAS_PROTEGIDAS = ['perfil', 'editar-perfil']
+// Rotas que só fazem sentido pra quem já está logado. As de "gerar-3d" estão
+// aqui porque o backend agora exige login pra gerar modelos (evita que
+// qualquer visitante gaste os créditos da conta na Meshy/Gemini) — sem isso
+// aqui também, a pessoa chegaria até a tela e só descobriria que precisa
+// logar ao tentar gerar algo.
+const ROTAS_PROTEGIDAS = [
+  'perfil',
+  'editar-perfil',
+  'gerar-3d',
+  'gerar-3d-texto',
+  'gerar-3d-imagem',
+  'gerar-3d-multi-imagem',
+]
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -46,12 +57,14 @@ const router = createRouter({
       name: 'editar-perfil',
       component: () => import('../views/EditProfileView.vue'),
     },
-    // Qualquer caminho que não bate com nenhuma rota acima cai aqui.
+    // A captura pelo celular fica de fora das rotas protegidas de propósito:
+    // quem abre pelo QR code normalmente não está logado nesse aparelho.
     {
       path: '/captura-movel/:sessionId',
       name: 'captura-movel',
       component: () => import('../views/CapturaMovelView.vue'),
     },
+    // Qualquer caminho que não bate com nenhuma rota acima cai aqui.
     {
       path: '/:pathMatch(.*)*',
       redirect: '/gerar-3d',

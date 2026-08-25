@@ -78,6 +78,7 @@ import { ref, computed, onUnmounted } from 'vue';
 import QRCode from 'qrcode';
 import { generate3DFromImages, checkMultiImageTask } from '@/services/meshy';
 import { consultarCaptura } from '@/services/capturaMovel';
+import { API_BASE } from '@/services/apiBase';
 import ModelViewer from './ModelViewer.vue';
 
 // Ordem sugerida: a Meshy usa a 1ª imagem como vista principal (frente).
@@ -95,7 +96,7 @@ const progress = ref(0);
 const modelUrl = ref(null);
 
 const proxiedModelUrl = computed(() =>
-  modelUrl.value ? `http://localhost:3001/api/proxy-model?url=${encodeURIComponent(modelUrl.value)}` : null
+  modelUrl.value ? `${API_BASE}/api/proxy-model?url=${encodeURIComponent(modelUrl.value)}` : null
 );
 
 const hasAtLeastOneImage = computed(() => slots.value.some((s) => s.preview));

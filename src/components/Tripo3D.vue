@@ -35,6 +35,7 @@
 import '@/assets/components/tripo3d.css';
 import { ref, computed } from 'vue';
 import { generateImage as gerarImagemApi, checkTextImageTask, generate3DFromImage, checkImageTask } from '@/services/meshy';
+import { API_BASE } from '@/services/apiBase';
 import ModelViewer from './ModelViewer.vue';
 
 const prompt = ref('');
@@ -47,7 +48,7 @@ const modelProgress = ref(0);
 const modelUrl = ref(null);
 
 const proxiedModelUrl = computed(() =>
-  modelUrl.value ? `http://localhost:3001/api/proxy-model?url=${encodeURIComponent(modelUrl.value)}` : null
+  modelUrl.value ? `${API_BASE}/api/proxy-model?url=${encodeURIComponent(modelUrl.value)}` : null
 );
 
 async function generateImage() {

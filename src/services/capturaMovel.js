@@ -1,4 +1,4 @@
-const API_BASE = `${window.location.protocol}//${window.location.hostname}:3001`;
+import { API_BASE } from './apiBase';
 
 export async function enviarFotosCaptura(sessionId, images) {
   const res = await fetch(`${API_BASE}/api/captura-movel/${sessionId}`, {

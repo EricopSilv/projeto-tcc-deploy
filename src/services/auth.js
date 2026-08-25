@@ -1,7 +1,8 @@
+import { API_BASE } from './apiBase';
 import { estadoUsuario } from '@/stores/usuario';
 
 export async function register(login, senha) {
-  const res = await fetch('http://localhost:3001/api/register', {
+  const res = await fetch(`${API_BASE}/api/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ login, senha }),
@@ -14,7 +15,7 @@ export async function register(login, senha) {
 // Retorna { login, token }. O token deve ser guardado com definirUsuarioLogado
 // para ser reenviado nas próximas chamadas autenticadas.
 export async function login(login_, senha) {
-  const res = await fetch('http://localhost:3001/api/login', {
+  const res = await fetch(`${API_BASE}/api/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ login: login_, senha }),
@@ -27,7 +28,7 @@ export async function login(login_, senha) {
 // Só o dono da conta pode alterar seus próprios dados, então enviamos o
 // token JWT guardado em estadoUsuario no header Authorization.
 export async function updateUser(loginAtual, dados) {
-  const res = await fetch(`http://localhost:3001/api/usuarios/${loginAtual}`, {
+  const res = await fetch(`${API_BASE}/api/usuarios/${loginAtual}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -41,7 +42,7 @@ export async function updateUser(loginAtual, dados) {
 }
 
 export async function deleteUser(login) {
-  const res = await fetch(`http://localhost:3001/api/usuarios/${login}`, {
+  const res = await fetch(`${API_BASE}/api/usuarios/${login}`, {
     method: 'DELETE',
     headers: {
       Authorization: `Bearer ${estadoUsuario.token}`,

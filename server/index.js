@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { GoogleGenAI } from '@google/genai';
 import 'dotenv/config';
 import bcrypt from 'bcrypt';
@@ -7,9 +9,36 @@ import { pool } from './db.js';
 import jwt from 'jsonwebtoken';
 
 const app = express();                    // ← isso precisa vir ANTES
-app.use(cors());
+
+app.use(helmet());
+
+// Em produção, defina FRONTEND_URL (ex: https://app.seudominio.com) pra que
+// só o seu próprio site consiga chamar essa API. Sem essa variável definida
+// (ambiente local, testes), libera qualquer origem pra não travar o
+// desenvolvimento (localhost, IP da rede local, túnel do ngrok etc.).
+const origemPermitida = process.env.FRONTEND_URL;
+app.use(cors(origemPermitida ? { origin: origemPermitida } : {}));
+
 // Limite maior porque o multi-imagem manda várias fotos em base64 no mesmo request
 app.use(express.json({ limit: '40mb' }));
+
+// Limite geral pras rotas da API, pra dificultar abuso/DoS básico.
+const limiteGeral = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api', limiteGeral);
+
+// Limite mais rígido só pra login/cadastro, pra dificultar força bruta de senha.
+const limiteAuth = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Muitas tentativas. Tente novamente em alguns minutos.' },
+});
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -38,7 +67,7 @@ function autenticar(req, res, next) {
   }
 }
 
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', limiteAuth, async (req, res) => {
   try {
     const { login, senha } = req.body;
     if (!login || !senha) {
@@ -63,7 +92,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', limiteAuth, async (req, res) => {
   try {
     const { login, senha } = req.body;
     if (!login || !senha) {
@@ -161,7 +190,9 @@ app.delete('/api/usuarios/:login', autenticar, async (req, res) => {
 
 // Chat com a IA (Gemini). Recebe o histórico inteiro a cada chamada
 // (o front-end reenvia tudo, então aqui é uma chamada única e sem estado).
-app.post('/api/chat', async (req, res) => {
+// Exige login: cada chamada consome cota da sua conta do Gemini, então não
+// pode ficar aberta pra qualquer visitante do site.
+app.post('/api/chat', autenticar, async (req, res) => {
   try {
     const { messages } = req.body;
 
@@ -208,7 +239,11 @@ function normalizeStatus(meshyStatus) {
   return map[meshyStatus] || meshyStatus?.toLowerCase();
 }
 
-app.post('/api/generate-3d', async (req, res) => {
+// Todas as rotas abaixo que chamam a Meshy/Gemini exigem login (autenticar):
+// são chamadas que custam créditos da SUA conta, então não podem ficar
+// abertas pra qualquer visitante do site gerar modelos de graça.
+
+app.post('/api/generate-3d', autenticar, async (req, res) => {
   try {
     const { prompt } = req.body;
 
@@ -236,7 +271,7 @@ app.post('/api/generate-3d', async (req, res) => {
   }
 });
 
-app.get('/api/task/:id', async (req, res) => {
+app.get('/api/task/:id', autenticar, async (req, res) => {
   try {
     const clientId = req.params.id;
     // Se já existe uma etapa de refine em andamento para esse id, consulta ela
@@ -279,7 +314,7 @@ app.get('/api/task/:id', async (req, res) => {
   }
 });
 
-app.post('/api/generate-image', async (req, res) => {
+app.post('/api/generate-image', autenticar, async (req, res) => {
   try {
     const { prompt } = req.body;
 
@@ -305,7 +340,7 @@ app.post('/api/generate-image', async (req, res) => {
   }
 });
 
-app.get('/api/task-text-image/:id', async (req, res) => {
+app.get('/api/task-text-image/:id', autenticar, async (req, res) => {
   try {
     const response = await fetch(`https://api.meshy.ai/openapi/v1/text-to-image/${req.params.id}`, {
       headers: { Authorization: `Bearer ${process.env.MESHY_API_KEY}` },
@@ -323,7 +358,7 @@ app.get('/api/task-text-image/:id', async (req, res) => {
   }
 });
 
-app.post('/api/generate-3d-image', async (req, res) => {
+app.post('/api/generate-3d-image', autenticar, async (req, res) => {
   try {
     const { image_base64 } = req.body;
     console.log('Prefixo recebido:', image_base64?.substring(0, 50));
@@ -350,7 +385,7 @@ app.post('/api/generate-3d-image', async (req, res) => {
   }
 });
 
-app.get('/api/task-image/:id', async (req, res) => {
+app.get('/api/task-image/:id', autenticar, async (req, res) => {
   try {
     const response = await fetch(`https://api.meshy.ai/openapi/v1/image-to-3d/${req.params.id}`, {
       headers: { Authorization: `Bearer ${process.env.MESHY_API_KEY}` },
@@ -371,7 +406,7 @@ app.get('/api/task-image/:id', async (req, res) => {
 // Multi-imagem: recebe várias fotos do MESMO objeto/pessoa (ex.: frente, lado, costas)
 // e usa o endpoint "multi-image-to-3d" da Meshy, que combina os ângulos para gerar
 // um modelo mais fiel do que dá pra conseguir com uma foto só.
-app.post('/api/generate-3d-multi-image', async (req, res) => {
+app.post('/api/generate-3d-multi-image', autenticar, async (req, res) => {
   try {
     const { images } = req.body; // array de data URIs base64 (ou URLs), 1 a 4 itens
 
@@ -415,7 +450,7 @@ app.post('/api/generate-3d-multi-image', async (req, res) => {
   }
 });
 
-app.get('/api/task-multi-image/:id', async (req, res) => {
+app.get('/api/task-multi-image/:id', autenticar, async (req, res) => {
   try {
     const response = await fetch(`https://api.meshy.ai/openapi/v1/multi-image-to-3d/${req.params.id}`, {
       headers: { Authorization: `Bearer ${process.env.MESHY_API_KEY}` },
@@ -437,6 +472,12 @@ app.get('/api/task-multi-image/:id', async (req, res) => {
 // Guarda temporariamente (em memória, igual o refineTaskMap da Meshy) as
 // fotos que a pessoa manda pelo celular, associadas a um sessionId gerado
 // no navegador do computador.
+//
+// Essa rota fica sem "autenticar" de propósito: quem acessa pelo celular
+// (escaneando o QR code) normalmente não está logado nesse dispositivo, e
+// ela só guarda fotos em memória por alguns minutos — não chama nenhuma API
+// paga. Quem efetivamente gera o modelo (gastando créditos) é o /api/
+// generate-3d-multi-image, chamado pelo navegador logado no computador.
 const capturasMoveis = new Map(); // sessionId -> { images: [...], criadoEm: number }
 const CAPTURA_EXPIRA_MS = 15 * 60 * 1000; // 15 minutos
 
@@ -479,10 +520,32 @@ app.get('/api/captura-movel/:sessionId', (req, res) => {
   capturasMoveis.delete(req.params.sessionId);
 });
 
+// Domínios de onde essa rota pode buscar arquivos. Sem essa checagem, ela
+// seria um "proxy aberto": qualquer pessoa poderia usar seu servidor pra
+// buscar QUALQUER endereço da internet (inclusive endereços internos da
+// própria hospedagem), o que é um risco de segurança sério (SSRF).
+const DOMINIOS_PERMITIDOS_PROXY = ['meshy.ai'];
+
+function urlPermitidaParaProxy(urlStr) {
+  try {
+    const { hostname, protocol } = new URL(urlStr);
+    if (protocol !== 'https:') return false;
+    return DOMINIOS_PERMITIDOS_PROXY.some(
+      (dominio) => hostname === dominio || hostname.endsWith(`.${dominio}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
 app.get('/api/proxy-model', async (req, res) => {
   try {
     const { url } = req.query;
     if (!url) return res.status(400).json({ error: 'URL não informada' });
+
+    if (!urlPermitidaParaProxy(url)) {
+      return res.status(400).json({ error: 'Domínio não permitido' });
+    }
 
     let response;
     for (let tentativa = 1; tentativa <= 4; tentativa++) {
@@ -508,4 +571,7 @@ app.get('/api/proxy-model', async (req, res) => {
   }
 });
 
-app.listen(3001, () => console.log('Servidor rodando na porta 3001'));   // ← isso precisa vir por ÚLTIMO
+// A maioria das hospedagens (Render, Railway etc.) define a porta através da
+// variável PORT — se não existir (rodando local), cai no 3001 de sempre.
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));   // ← isso precisa vir por ÚLTIMO
