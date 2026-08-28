@@ -4,6 +4,7 @@ const usuarioSalvo = localStorage.getItem('usuarioLogado');
 const tokenSalvo = localStorage.getItem('tokenAcesso');
 const nomeSalvo = localStorage.getItem('usuarioNome');
 const telefoneSalvo = localStorage.getItem('usuarioTelefone');
+const nivelAcessoSalvo = localStorage.getItem('usuarioNivelAcesso');
 
 export const estadoUsuario = reactive({
   login: usuarioSalvo || null,
@@ -12,13 +13,15 @@ export const estadoUsuario = reactive({
   token: tokenSalvo || null,
   nome: nomeSalvo || null,
   telefone: telefoneSalvo || null,
+  nivelAcesso: nivelAcessoSalvo || null,
 });
 
-export function definirUsuarioLogado(login, token, nome, telefone) {
+export function definirUsuarioLogado(login, token, nome, telefone, nivelAcesso) {
   estadoUsuario.login = login;
   estadoUsuario.token = token || null;
   estadoUsuario.nome = nome || null;
   estadoUsuario.telefone = telefone || null;
+  estadoUsuario.nivelAcesso = nivelAcesso || null;
 
   localStorage.setItem('usuarioLogado', login);
   if (token) {
@@ -38,6 +41,12 @@ export function definirUsuarioLogado(login, token, nome, telefone) {
   } else {
     localStorage.removeItem('usuarioTelefone');
   }
+
+  if (nivelAcesso) {
+    localStorage.setItem('usuarioNivelAcesso', nivelAcesso);
+  } else {
+    localStorage.removeItem('usuarioNivelAcesso');
+  }
 }
 
 export function limparUsuarioLogado() {
@@ -45,8 +54,10 @@ export function limparUsuarioLogado() {
   estadoUsuario.token = null;
   estadoUsuario.nome = null;
   estadoUsuario.telefone = null;
+  estadoUsuario.nivelAcesso = null;
   localStorage.removeItem('usuarioLogado');
   localStorage.removeItem('tokenAcesso');
   localStorage.removeItem('usuarioNome');
   localStorage.removeItem('usuarioTelefone');
+  localStorage.removeItem('usuarioNivelAcesso');
 }

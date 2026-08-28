@@ -52,7 +52,7 @@ async function salvar() {
       novoTelefone: novoTelefone.value,
     });
 
-    definirUsuarioLogado(data.login, data.token, data.nome, data.telefone);
+    definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso);
     novoLogin.value = '';
     novaSenha.value = '';
     novoNome.value = data.nome || '';

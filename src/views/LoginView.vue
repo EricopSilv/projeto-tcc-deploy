@@ -51,7 +51,7 @@ async function enviar() {
       telefone.value = '';
     } else {
       const data = await loginApi(loginInput.value, senha.value);
-      definirUsuarioLogado(data.login, data.token, data.nome, data.telefone);
+      definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso);
       router.push('/perfil');
     }
   } catch (err) {

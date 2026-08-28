@@ -44,10 +44,14 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // --- Autenticação (JWT) ---
 // Gera um token com os dados do usuário, válido por 7 dias. Recebe um objeto
-// { login, nome, telefone } para que o front-end sempre tenha esses dados
-// disponíveis sem precisar de uma chamada extra à API.
-function gerarToken({ login, nome, telefone }) {
-  return jwt.sign({ login, nome, telefone }, process.env.JWT_SECRET, { expiresIn: '7d' });
+// { login, nome, telefone, nivel_acesso } para que o front-end sempre tenha
+// esses dados disponíveis sem precisar de uma chamada extra à API.
+function gerarToken({ login, nome, telefone, nivel_acesso }) {
+  return jwt.sign(
+    { login, nome, telefone, nivelAcesso: nivel_acesso },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
 }
 
 // Middleware que exige um token válido no header "Authorization: Bearer <token>".
@@ -63,10 +67,25 @@ function autenticar(req, res, next) {
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     req.usuarioLogin = payload.login;
+    req.usuarioNivelAcesso = payload.nivelAcesso;
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Token inválido ou expirado' });
   }
+}
+
+// Segurança extra além do "autenticar": verifica se o nível de acesso de
+// quem está logado está na lista de níveis permitidos pra essa rota. Por
+// enquanto só existe o nível "administrador", mas isso já deixa pronta a
+// estrutura pra quando o nível "cliente" existir e não puder mais gerar
+// modelos, só visualizar os que já foram criados pra ele.
+function exigirNivel(...niveisPermitidos) {
+  return (req, res, next) => {
+    if (!niveisPermitidos.includes(req.usuarioNivelAcesso)) {
+      return res.status(403).json({ error: 'Você não tem permissão para essa ação' });
+    }
+    next();
+  };
 }
 
 app.post('/api/register', limiteAuth, async (req, res) => {
@@ -102,7 +121,7 @@ app.post('/api/login', limiteAuth, async (req, res) => {
     }
 
     const result = await pool.query(
-      'SELECT login, senha_hash, nome, telefone FROM usuarios WHERE login = $1',
+      'SELECT login, senha_hash, nome, telefone, nivel_acesso FROM usuarios WHERE login = $1',
       [login]
     );
     const usuario = result.rows[0];
@@ -119,7 +138,13 @@ app.post('/api/login', limiteAuth, async (req, res) => {
     }
 
     const token = gerarToken(usuario);
-    res.json({ login: usuario.login, nome: usuario.nome, telefone: usuario.telefone, token });
+    res.json({
+      login: usuario.login,
+      nome: usuario.nome,
+      telefone: usuario.telefone,
+      nivelAcesso: usuario.nivel_acesso,
+      token,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao fazer login' });
@@ -169,7 +194,7 @@ app.put('/api/usuarios/:login', autenticar, async (req, res) => {
 
     valores.push(loginAtual);
     const resultado = await pool.query(
-      `UPDATE usuarios SET ${campos.join(', ')} WHERE login = $${indice} RETURNING login, nome, telefone`,
+      `UPDATE usuarios SET ${campos.join(', ')} WHERE login = $${indice} RETURNING login, nome, telefone, nivel_acesso`,
       valores
     );
 
@@ -183,6 +208,7 @@ app.put('/api/usuarios/:login', autenticar, async (req, res) => {
       login: usuarioAtualizado.login,
       nome: usuarioAtualizado.nome,
       telefone: usuarioAtualizado.telefone,
+      nivelAcesso: usuarioAtualizado.nivel_acesso,
       token,
     });
   } catch (err) {
@@ -290,7 +316,7 @@ function normalizeStatus(meshyStatus) {
 // são chamadas que custam créditos da SUA conta, então não podem ficar
 // abertas pra qualquer visitante do site gerar modelos de graça.
 
-app.post('/api/generate-3d', autenticar, async (req, res) => {
+app.post('/api/generate-3d', autenticar, exigirNivel('administrador'), async (req, res) => {
   try {
     const { prompt } = req.body;
 
@@ -420,7 +446,7 @@ app.get('/api/task-text-image/:id', autenticar, async (req, res) => {
   }
 });
 
-app.post('/api/generate-3d-image', autenticar, async (req, res) => {
+app.post('/api/generate-3d-image', autenticar, exigirNivel('administrador'), async (req, res) => {
   try {
     const { image_base64 } = req.body;
     console.log('Prefixo recebido:', image_base64?.substring(0, 50));
@@ -481,7 +507,7 @@ app.get('/api/task-image/:id', autenticar, async (req, res) => {
 // Multi-imagem: recebe várias fotos do MESMO objeto/pessoa (ex.: frente, lado, costas)
 // e usa o endpoint "multi-image-to-3d" da Meshy, que combina os ângulos para gerar
 // um modelo mais fiel do que dá pra conseguir com uma foto só.
-app.post('/api/generate-3d-multi-image', autenticar, async (req, res) => {
+app.post('/api/generate-3d-multi-image', autenticar, exigirNivel('administrador'), async (req, res) => {
   try {
     const { images } = req.body; // array de data URIs base64 (ou URLs), 1 a 4 itens
 

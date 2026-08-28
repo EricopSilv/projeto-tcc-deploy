@@ -7,6 +7,7 @@
 
       <p class="profile-subtitle">Login: {{ estadoUsuario.login }}</p>
       <p v-if="estadoUsuario.telefone" class="profile-subtitle">Telefone: {{ estadoUsuario.telefone }}</p>
+      <p v-if="estadoUsuario.nivelAcesso" class="profile-subtitle">Nível: {{ nivelAcessoFormatado }}</p>
 
       <div class="profile-actions">
         <button @click="irParaEdicao" class="btn-primary">Alterar dados</button>
@@ -18,10 +19,16 @@
 
 <script setup>
 import '@/assets/pages/profile.css';
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { estadoUsuario, limparUsuarioLogado } from '@/stores/usuario';
 
 const router = useRouter();
+
+const nivelAcessoFormatado = computed(() => {
+  const nivel = estadoUsuario.nivelAcesso || '';
+  return nivel.charAt(0).toUpperCase() + nivel.slice(1);
+});
 
 function irParaEdicao() {
   router.push('/perfil/editar');
