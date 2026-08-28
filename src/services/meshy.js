@@ -14,6 +14,7 @@ export async function generate3D(prompt) {
     body: JSON.stringify({ prompt }),
   });
   const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Falha ao criar tarefa de geração 3D');
   return data.task_id;
 }
 
@@ -29,6 +30,7 @@ export async function generate3DFromImage(imageBase64) {
     body: JSON.stringify({ image_base64: imageBase64 }),
   });
   const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Falha ao criar tarefa de geração 3D a partir de imagem');
   return data.task_id;
 }
 
@@ -62,6 +64,7 @@ export async function generateImage(prompt) {
     body: JSON.stringify({ prompt }),
   });
   const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Falha ao criar tarefa de geração de imagem');
   return data.task_id;
 }
 

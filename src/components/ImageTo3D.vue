@@ -174,8 +174,13 @@ async function generate() {
   loading.value = true;
   modelUrl.value = null;
 
-  const taskId = await generate3DFromImage(preview.value);
-  poll(taskId);
+  try {
+    const taskId = await generate3DFromImage(preview.value);
+    poll(taskId);
+  } catch (err) {
+    loading.value = false;
+    alert(err.message || 'Falha ao gerar o modelo.');
+  }
 }
 
 async function poll(taskId) {

@@ -9,6 +9,11 @@
       <p v-if="estadoUsuario.telefone" class="profile-subtitle">Telefone: {{ estadoUsuario.telefone }}</p>
       <p v-if="estadoUsuario.nivelAcesso" class="profile-subtitle">Nível: {{ nivelAcessoFormatado }}</p>
 
+      <p v-if="estadoUsuario.nivelAcesso === 'pendente'" class="profile-aviso-pendente">
+        Sua conta ainda está aguardando aprovação de um administrador. Você já pode
+        navegar pelo site, mas só vai conseguir gerar modelos 3D depois de aprovado.
+      </p>
+
       <div class="profile-actions">
         <button @click="irParaEdicao" class="btn-primary">Alterar dados</button>
         <button @click="sair" class="btn-secondary">Sair</button>

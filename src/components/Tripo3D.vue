@@ -58,8 +58,13 @@ async function generateImage() {
   imageUrl.value = null;
   modelUrl.value = null;
 
-  const taskId = await gerarImagemApi(prompt.value);
-  pollImage(taskId);
+  try {
+    const taskId = await gerarImagemApi(prompt.value);
+    pollImage(taskId);
+  } catch (err) {
+    loadingImage.value = false;
+    alert(err.message || 'Falha ao gerar a imagem.');
+  }
 }
 
 async function pollImage(taskId) {
@@ -83,8 +88,13 @@ async function generateModel() {
   loadingModel.value = true;
   modelUrl.value = null;
 
-  const taskId = await generate3DFromImage(imageUrl.value);
-  pollModel(taskId);
+  try {
+    const taskId = await generate3DFromImage(imageUrl.value);
+    pollModel(taskId);
+  } catch (err) {
+    loadingModel.value = false;
+    alert(err.message || 'Falha ao gerar o modelo.');
+  }
 }
 
 async function pollModel(taskId) {

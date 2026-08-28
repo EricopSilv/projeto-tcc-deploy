@@ -7,6 +7,8 @@ import 'dotenv/config';
 import bcrypt from 'bcrypt';
 import { pool } from './db.js';
 import jwt from 'jsonwebtoken';
+import crypto from 'node:crypto';
+import nodemailer from 'nodemailer';
 
 const app = express();                    // ← isso precisa vir ANTES
 
@@ -41,6 +43,46 @@ const limiteAuth = rateLimit({
 });
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+// --- E-mail de aprovação de acesso ---
+// Usa uma conta do Gmail (com "senha de app", não a senha normal) pra avisar
+// o administrador quando alguém novo se cadastra e precisa de aprovação.
+const transporterEmail = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_APP_PASSWORD,
+  },
+});
+
+// Se as variáveis de e-mail não estiverem configuradas (ex: rodando local
+// sem isso), só avisa no log e segue em frente — não trava o cadastro.
+async function enviarEmailAprovacao({ login, nome, token }) {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD || !process.env.ADMIN_EMAIL) {
+    console.warn('E-mail de aprovação não enviado: variáveis de e-mail não configuradas.');
+    return;
+  }
+
+  const linkAprovacao = `${process.env.BACKEND_URL}/api/solicitacoes/${token}/aprovar`;
+
+  try {
+    await transporterEmail.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.ADMIN_EMAIL,
+      subject: 'Novo pedido de acesso - VisionFade',
+      html: `
+        <p>Uma nova conta pediu acesso de administrador no VisionFade:</p>
+        <p><strong>Login:</strong> ${login}<br>
+           <strong>Nome:</strong> ${nome || '(não informado)'}</p>
+        <p><a href="${linkAprovacao}">Clique aqui para aprovar esse acesso</a></p>
+      `,
+    });
+  } catch (err) {
+    // Um erro ao enviar e-mail não deve impedir o cadastro de dar certo —
+    // a conta é criada normalmente, só o aviso que falha.
+    console.error('Erro ao enviar e-mail de aprovação:', err);
+  }
+}
 
 // --- Autenticação (JWT) ---
 // Gera um token com os dados do usuário, válido por 7 dias. Recebe um objeto
@@ -81,10 +123,17 @@ function autenticar(req, res, next) {
 // modelos, só visualizar os que já foram criados pra ele.
 function exigirNivel(...niveisPermitidos) {
   return (req, res, next) => {
-    if (!niveisPermitidos.includes(req.usuarioNivelAcesso)) {
-      return res.status(403).json({ error: 'Você não tem permissão para essa ação' });
+    if (niveisPermitidos.includes(req.usuarioNivelAcesso)) {
+      return next();
     }
-    next();
+
+    if (req.usuarioNivelAcesso === 'pendente') {
+      return res.status(403).json({
+        error: 'Sua conta ainda está aguardando aprovação de um administrador.',
+      });
+    }
+
+    return res.status(403).json({ error: 'Você não tem permissão para essa ação' });
   };
 }
 
@@ -101,6 +150,16 @@ app.post('/api/register', limiteAuth, async (req, res) => {
       'INSERT INTO usuarios (login, senha_hash, nome, telefone) VALUES ($1, $2, $3, $4)',
       [login, senhaHash, nome || null, telefone || null]
     );
+
+    // A conta já nasce com nível "pendente" (padrão da tabela). Cria uma
+    // solicitação de aprovação com um código único e avisa o administrador
+    // por e-mail, com um link que aprova o acesso em um clique.
+    const tokenSolicitacao = crypto.randomBytes(24).toString('hex');
+    await pool.query(
+      'INSERT INTO solicitacoes_acesso (usuario_login, token) VALUES ($1, $2)',
+      [login, tokenSolicitacao]
+    );
+    await enviarEmailAprovacao({ login, nome, token: tokenSolicitacao });
 
     res.status(201).json({ message: 'Usuário cadastrado com sucesso' });
   } catch (err) {
@@ -148,6 +207,56 @@ app.post('/api/login', limiteAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao fazer login' });
+  }
+});
+
+// Rota acessada pelo link do e-mail de aprovação — de propósito sem
+// "autenticar", já que quem clica é o administrador lendo o e-mail, não
+// necessariamente logado nesse navegador/dispositivo. A segurança aqui vem
+// do código aleatório e imprevisível no próprio link (só quem recebeu o
+// e-mail tem acesso a ele).
+app.get('/api/solicitacoes/:token/aprovar', async (req, res) => {
+  function paginaHtml(mensagem) {
+    return `<!DOCTYPE html>
+<html lang="pt-br">
+<head><meta charset="UTF-8"><title>Aprovação de acesso — VisionFade</title></head>
+<body style="font-family: sans-serif; text-align: center; padding: 3rem;">
+  <h1>VisionFade</h1>
+  <p>${mensagem}</p>
+</body>
+</html>`;
+  }
+
+  try {
+    const { token } = req.params;
+
+    const resultado = await pool.query(
+      'SELECT usuario_login, status FROM solicitacoes_acesso WHERE token = $1',
+      [token]
+    );
+    const solicitacao = resultado.rows[0];
+
+    if (!solicitacao) {
+      return res.status(404).send(paginaHtml('Link de aprovação não encontrado ou inválido.'));
+    }
+
+    if (solicitacao.status !== 'pendente') {
+      return res.send(paginaHtml('Essa solicitação já foi resolvida anteriormente.'));
+    }
+
+    await pool.query(
+      "UPDATE usuarios SET nivel_acesso = 'administrador' WHERE login = $1",
+      [solicitacao.usuario_login]
+    );
+    await pool.query(
+      "UPDATE solicitacoes_acesso SET status = 'aprovado', resolvido_em = now() WHERE token = $1",
+      [token]
+    );
+
+    res.send(paginaHtml(`Acesso de "${solicitacao.usuario_login}" aprovado com sucesso!`));
+  } catch (err) {
+    console.error(err);
+    res.status(500).send(paginaHtml('Erro ao aprovar a solicitação. Tente novamente mais tarde.'));
   }
 });
 
