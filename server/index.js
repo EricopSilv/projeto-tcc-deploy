@@ -8,7 +8,6 @@ import bcrypt from 'bcrypt';
 import { pool } from './db.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
-import nodemailer from 'nodemailer';
 
 const app = express();                    // ← isso precisa vir ANTES
 
@@ -45,20 +44,13 @@ const limiteAuth = rateLimit({
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // --- E-mail de aprovação de acesso ---
-// Usa uma conta do Gmail (com "senha de app", não a senha normal) pra avisar
-// o administrador quando alguém novo se cadastra e precisa de aprovação.
-const transporterEmail = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASSWORD,
-  },
-});
-
-// Se as variáveis de e-mail não estiverem configuradas (ex: rodando local
-// sem isso), só avisa no log e segue em frente — não trava o cadastro.
+// Usa a API da Resend (por HTTPS) em vez de SMTP direto (Gmail): hospedagens
+// como o Render bloqueiam conexões de saída pelas portas usadas por SMTP —
+// isso foi testado e confirmado (deu "Connection timeout" tentando o Gmail
+// direto). A Resend funciona pela mesma porta de qualquer site (443), então
+// não esbarra nesse bloqueio.
 async function enviarEmailAprovacao({ login, nome, token }) {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD || !process.env.ADMIN_EMAIL) {
+  if (!process.env.RESEND_API_KEY || !process.env.ADMIN_EMAIL) {
     console.warn('E-mail de aprovação não enviado: variáveis de e-mail não configuradas.');
     return;
   }
@@ -66,17 +58,33 @@ async function enviarEmailAprovacao({ login, nome, token }) {
   const linkAprovacao = `${process.env.BACKEND_URL}/api/solicitacoes/${token}/aprovar`;
 
   try {
-    await transporterEmail.sendMail({
-      from: process.env.EMAIL_USER,
-      to: process.env.ADMIN_EMAIL,
-      subject: 'Novo pedido de acesso - VisionFade',
-      html: `
-        <p>Uma nova conta pediu acesso de administrador no VisionFade:</p>
-        <p><strong>Login:</strong> ${login}<br>
-           <strong>Nome:</strong> ${nome || '(não informado)'}</p>
-        <p><a href="${linkAprovacao}">Clique aqui para aprovar esse acesso</a></p>
-      `,
+    const resposta = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        // "onboarding@resend.dev" é o remetente de teste da Resend: funciona
+        // sem precisar verificar um domínio próprio, mas só entrega pro
+        // e-mail usado pra criar a conta na Resend — que aqui é o mesmo
+        // ADMIN_EMAIL, então funciona certinho pro nosso caso.
+        from: 'VisionFade <onboarding@resend.dev>',
+        to: [process.env.ADMIN_EMAIL],
+        subject: 'Novo pedido de acesso - VisionFade',
+        html: `
+          <p>Uma nova conta pediu acesso de administrador no VisionFade:</p>
+          <p><strong>Login:</strong> ${login}<br>
+             <strong>Nome:</strong> ${nome || '(não informado)'}</p>
+          <p><a href="${linkAprovacao}">Clique aqui para aprovar esse acesso</a></p>
+        `,
+      }),
     });
+
+    if (!resposta.ok) {
+      const detalhes = await resposta.text();
+      console.error('Erro ao enviar e-mail de aprovação (Resend):', resposta.status, detalhes);
+    }
   } catch (err) {
     // Um erro ao enviar e-mail não deve impedir o cadastro de dar certo —
     // a conta é criada normalmente, só o aviso que falha.
