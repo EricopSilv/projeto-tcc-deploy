@@ -351,6 +351,23 @@ app.delete('/api/usuarios/:login', autenticar, async (req, res) => {
   }
 });
 
+app.get('/api/meus-modelos', autenticar, async (req, res) => {
+  try {
+    const resultado = await pool.query(
+      `SELECT id, tipo, descricao, url_modelo, criado_em
+       FROM modelos_3d
+       WHERE usuario_login = $1
+       ORDER BY criado_em DESC`,
+      [req.usuarioLogin]
+    );
+
+    res.json({ modelos: resultado.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar modelos' });
+  }
+});
+
 // Chat com a IA (Gemini). Recebe o histórico inteiro a cada chamada
 // (o front-end reenvia tudo, então aqui é uma chamada única e sem estado).
 // Exige login: cada chamada consome cota da sua conta do Gemini, então não

@@ -72,3 +72,10 @@ export async function checkTextImageTask(taskId) {
   const res = await fetch(`${API_BASE}/api/task-text-image/${taskId}`, { headers: cabecalhosAuth() });
   return res.json();
 }
+
+export async function getMeusModelos() {
+  const res = await fetch(`${API_BASE}/api/meus-modelos`, { headers: cabecalhosAuth() });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Falha ao buscar modelos');
+  return data.modelos;
+}
