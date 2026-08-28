@@ -2,8 +2,11 @@
   <div class="profile-page">
     <div class="profile-card">
       <h1 class="profile-title">
-        Bem-vindo, <span class="profile-highlight">{{ estadoUsuario.login }}</span>!
+        Bem-vindo, <span class="profile-highlight">{{ estadoUsuario.nome || estadoUsuario.login }}</span>!
       </h1>
+
+      <p class="profile-subtitle">Login: {{ estadoUsuario.login }}</p>
+      <p v-if="estadoUsuario.telefone" class="profile-subtitle">Telefone: {{ estadoUsuario.telefone }}</p>
 
       <div class="profile-actions">
         <button @click="irParaEdicao" class="btn-primary">Alterar dados</button>

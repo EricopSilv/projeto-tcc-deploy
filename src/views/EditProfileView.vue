@@ -10,6 +10,8 @@
       <div class="edit-profile-fields">
         <input v-model="novoLogin" placeholder="Novo login (opcional)" class="input-field" />
         <input v-model="novaSenha" type="password" placeholder="Nova senha (opcional)" class="input-field" />
+        <input v-model="novoNome" placeholder="Nome completo" class="input-field" />
+        <input v-model="novoTelefone" placeholder="Telefone" class="input-field" />
       </div>
 
       <div class="edit-profile-actions">
@@ -33,6 +35,11 @@ import { estadoUsuario, definirUsuarioLogado, limparUsuarioLogado } from '@/stor
 const router = useRouter();
 const novoLogin = ref('');
 const novaSenha = ref('');
+// Nome e telefone já vêm preenchidos com o valor atual (diferente de
+// login/senha, que ficam em branco por padrão) — assim a pessoa edita
+// diretamente em cima do que já está salvo.
+const novoNome = ref(estadoUsuario.nome || '');
+const novoTelefone = ref(estadoUsuario.telefone || '');
 const mensagem = ref('');
 
 async function salvar() {
@@ -41,11 +48,15 @@ async function salvar() {
     const data = await updateUser(estadoUsuario.login, {
       novoLogin: novoLogin.value || undefined,
       novaSenha: novaSenha.value || undefined,
+      novoNome: novoNome.value,
+      novoTelefone: novoTelefone.value,
     });
 
-    definirUsuarioLogado(data.login, data.token);
+    definirUsuarioLogado(data.login, data.token, data.nome, data.telefone);
     novoLogin.value = '';
     novaSenha.value = '';
+    novoNome.value = data.nome || '';
+    novoTelefone.value = data.telefone || '';
     mensagem.value = 'Dados atualizados com sucesso!';
   } catch (err) {
     mensagem.value = err.message;

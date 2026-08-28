@@ -43,9 +43,11 @@ const limiteAuth = rateLimit({
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // --- Autenticação (JWT) ---
-// Gera um token com o login do usuário, válido por 7 dias.
-function gerarToken(login) {
-  return jwt.sign({ login }, process.env.JWT_SECRET, { expiresIn: '7d' });
+// Gera um token com os dados do usuário, válido por 7 dias. Recebe um objeto
+// { login, nome, telefone } para que o front-end sempre tenha esses dados
+// disponíveis sem precisar de uma chamada extra à API.
+function gerarToken({ login, nome, telefone }) {
+  return jwt.sign({ login, nome, telefone }, process.env.JWT_SECRET, { expiresIn: '7d' });
 }
 
 // Middleware que exige um token válido no header "Authorization: Bearer <token>".
@@ -69,7 +71,7 @@ function autenticar(req, res, next) {
 
 app.post('/api/register', limiteAuth, async (req, res) => {
   try {
-    const { login, senha } = req.body;
+    const { login, senha, nome, telefone } = req.body;
     if (!login || !senha) {
       return res.status(400).json({ error: 'Login e senha são obrigatórios' });
     }
@@ -77,8 +79,8 @@ app.post('/api/register', limiteAuth, async (req, res) => {
     const senhaHash = await bcrypt.hash(senha, 10);
 
     await pool.query(
-      'INSERT INTO usuarios (login, senha_hash) VALUES ($1, $2)',
-      [login, senhaHash]
+      'INSERT INTO usuarios (login, senha_hash, nome, telefone) VALUES ($1, $2, $3, $4)',
+      [login, senhaHash, nome || null, telefone || null]
     );
 
     res.status(201).json({ message: 'Usuário cadastrado com sucesso' });
@@ -100,7 +102,7 @@ app.post('/api/login', limiteAuth, async (req, res) => {
     }
 
     const result = await pool.query(
-      'SELECT login, senha_hash FROM usuarios WHERE login = $1',
+      'SELECT login, senha_hash, nome, telefone FROM usuarios WHERE login = $1',
       [login]
     );
     const usuario = result.rows[0];
@@ -116,8 +118,8 @@ app.post('/api/login', limiteAuth, async (req, res) => {
       return res.status(401).json({ error: 'Login ou senha incorretos' });
     }
 
-    const token = gerarToken(usuario.login);
-    res.json({ login: usuario.login, token });
+    const token = gerarToken(usuario);
+    res.json({ login: usuario.login, nome: usuario.nome, telefone: usuario.telefone, token });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao fazer login' });
@@ -134,37 +136,55 @@ app.put('/api/usuarios/:login', autenticar, async (req, res) => {
       return res.status(403).json({ error: 'Você só pode alterar a própria conta' });
     }
 
-    const { novoLogin, novaSenha } = req.body;
+    const { novoLogin, novaSenha, novoNome, novoTelefone } = req.body;
 
-    if (!novoLogin && !novaSenha) {
-      return res.status(400).json({ error: 'Informe um novo login e/ou uma nova senha' });
+    if (!novoLogin && !novaSenha && novoNome === undefined && novoTelefone === undefined) {
+      return res.status(400).json({ error: 'Informe ao menos um campo para atualizar' });
     }
 
-    if (novoLogin && novaSenha) {
-      const senhaHash = await bcrypt.hash(novaSenha, 10);
-      await pool.query(
-        'UPDATE usuarios SET login = $1, senha_hash = $2 WHERE login = $3',
-        [novoLogin, senhaHash, loginAtual]
-      );
-    } else if (novoLogin) {
-      await pool.query(
-        'UPDATE usuarios SET login = $1 WHERE login = $2',
-        [novoLogin, loginAtual]
-      );
-    } else {
-      const senhaHash = await bcrypt.hash(novaSenha, 10);
-      await pool.query(
-        'UPDATE usuarios SET senha_hash = $1 WHERE login = $2',
-        [senhaHash, loginAtual]
-      );
+    // Monta o UPDATE dinamicamente, só com os campos que realmente vieram no
+    // pedido — assim dá pra atualizar qualquer combinação (só o nome, só o
+    // telefone, tudo junto, etc.) sem precisar de um bloco if/else pra cada caso.
+    const campos = [];
+    const valores = [];
+    let indice = 1;
+
+    if (novoLogin) {
+      campos.push(`login = $${indice++}`);
+      valores.push(novoLogin);
     }
+    if (novaSenha) {
+      const senhaHash = await bcrypt.hash(novaSenha, 10);
+      campos.push(`senha_hash = $${indice++}`);
+      valores.push(senhaHash);
+    }
+    if (novoNome !== undefined) {
+      campos.push(`nome = $${indice++}`);
+      valores.push(novoNome || null);
+    }
+    if (novoTelefone !== undefined) {
+      campos.push(`telefone = $${indice++}`);
+      valores.push(novoTelefone || null);
+    }
+
+    valores.push(loginAtual);
+    const resultado = await pool.query(
+      `UPDATE usuarios SET ${campos.join(', ')} WHERE login = $${indice} RETURNING login, nome, telefone`,
+      valores
+    );
 
     // Se o login mudou, o token antigo (que carrega o login antigo) deixa de
-    // fazer sentido — geramos um novo já com o login atualizado.
-    const loginFinal = novoLogin || loginAtual;
-    const token = gerarToken(loginFinal);
+    // fazer sentido — geramos um novo já com os dados atualizados.
+    const usuarioAtualizado = resultado.rows[0];
+    const token = gerarToken(usuarioAtualizado);
 
-    res.json({ message: 'Dados atualizados com sucesso', login: loginFinal, token });
+    res.json({
+      message: 'Dados atualizados com sucesso',
+      login: usuarioAtualizado.login,
+      nome: usuarioAtualizado.nome,
+      telefone: usuarioAtualizado.telefone,
+      token,
+    });
   } catch (err) {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Esse login já está em uso' });
@@ -226,6 +246,33 @@ const MESHY_BASE_URL = 'https://api.meshy.ai/openapi/v2';
 // um único taskId do início ao fim (igual funcionava com a Tripo).
 const refineTaskMap = new Map();
 
+// Guarda, em memória, qual prompt gerou cada tarefa de texto-pra-3D — só
+// serve pra registrar uma descrição legível quando o modelo terminar e for
+// salvo no banco (ver salvarModeloGerado).
+const promptPorTask = new Map();
+
+// Registra no banco um modelo 3D que terminou de ser gerado, associado ao
+// usuário logado que pediu a geração. Usa "ON CONFLICT DO NOTHING" na coluna
+// meshy_task_id porque o front-end fica consultando o status repetidamente
+// até dar "sucesso" — sem isso, cada consulta depois do sucesso duplicaria a
+// linha no banco.
+async function salvarModeloGerado({ usuarioLogin, tipo, descricao, urlModelo, meshyTaskId }) {
+  if (!urlModelo) return;
+
+  try {
+    await pool.query(
+      `INSERT INTO modelos_3d (usuario_login, tipo, descricao, url_modelo, meshy_task_id)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (meshy_task_id) DO NOTHING`,
+      [usuarioLogin, tipo, descricao || null, urlModelo, meshyTaskId]
+    );
+  } catch (err) {
+    // Um erro aqui não deve derrubar a resposta pro front-end — a pessoa já
+    // recebeu o modelo gerado, só não conseguimos registrar no histórico.
+    console.error('Erro ao salvar modelo gerado no banco:', err);
+  }
+}
+
 // Normaliza o status da Meshy (PENDING/IN_PROGRESS/SUCCEEDED/FAILED/CANCELED)
 // para o vocabulário que o front-end já espera (success/failed/cancelled).
 function normalizeStatus(meshyStatus) {
@@ -263,6 +310,8 @@ app.post('/api/generate-3d', autenticar, async (req, res) => {
 
     const data = await response.json();
     console.log('Resposta da Meshy (preview):', JSON.stringify(data, null, 2));
+    // Guarda o prompt original pra usar como descrição quando o modelo for salvo.
+    if (data.result) promptPorTask.set(data.result, prompt);
     // Meshy retorna { result: "<task_id>" }
     res.json({ task_id: data.result });
   } catch (err) {
@@ -303,10 +352,23 @@ app.get('/api/task/:id', autenticar, async (req, res) => {
       return res.json({ status: 'in_progress', progress: 0 });
     }
 
+    const statusNormalizado = normalizeStatus(data.status);
+    const urlModelo = data.model_urls?.glb || null;
+
+    if (statusNormalizado === 'success' && urlModelo) {
+      await salvarModeloGerado({
+        usuarioLogin: req.usuarioLogin,
+        tipo: 'texto',
+        descricao: promptPorTask.get(clientId),
+        urlModelo,
+        meshyTaskId: actualId,
+      });
+    }
+
     res.json({
-      status: normalizeStatus(data.status),
+      status: statusNormalizado,
       progress: data.progress,
-      output: { model_url: data.model_urls?.glb || null },
+      output: { model_url: urlModelo },
     });
   } catch (err) {
     console.error(err);
@@ -392,10 +454,23 @@ app.get('/api/task-image/:id', autenticar, async (req, res) => {
     });
     const data = await response.json();
 
+    const statusNormalizado = normalizeStatus(data.status);
+    const urlModelo = data.model_urls?.glb || null;
+
+    if (statusNormalizado === 'success' && urlModelo) {
+      await salvarModeloGerado({
+        usuarioLogin: req.usuarioLogin,
+        tipo: 'imagem',
+        descricao: 'Gerado a partir de uma imagem',
+        urlModelo,
+        meshyTaskId: req.params.id,
+      });
+    }
+
     res.json({
-      status: normalizeStatus(data.status),
+      status: statusNormalizado,
       progress: data.progress,
-      output: { model_url: data.model_urls?.glb || null },
+      output: { model_url: urlModelo },
     });
   } catch (err) {
     console.error(err);
@@ -457,10 +532,23 @@ app.get('/api/task-multi-image/:id', autenticar, async (req, res) => {
     });
     const data = await response.json();
 
+    const statusNormalizado = normalizeStatus(data.status);
+    const urlModelo = data.model_urls?.glb || null;
+
+    if (statusNormalizado === 'success' && urlModelo) {
+      await salvarModeloGerado({
+        usuarioLogin: req.usuarioLogin,
+        tipo: 'multi_imagem',
+        descricao: 'Gerado a partir de múltiplas imagens',
+        urlModelo,
+        meshyTaskId: req.params.id,
+      });
+    }
+
     res.json({
-      status: normalizeStatus(data.status),
+      status: statusNormalizado,
       progress: data.progress,
-      output: { model_url: data.model_urls?.glb || null },
+      output: { model_url: urlModelo },
     });
   } catch (err) {
     console.error(err);

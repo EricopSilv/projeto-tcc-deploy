@@ -21,11 +21,21 @@
 .profile-title {
   font-size: 1.5rem;
   font-weight: 700;
-  margin-bottom: 2rem;
+  margin-bottom: 0.5rem;
 }
 
 .profile-highlight {
   color: var(--color-accent-hover);
+}
+
+.profile-subtitle {
+  color: var(--color-border);
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+}
+
+.profile-subtitle:last-of-type {
+  margin-bottom: 2rem;
 }
 
 .profile-actions {

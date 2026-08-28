@@ -6,6 +6,10 @@
       <div class="login-fields">
         <input v-model="loginInput" placeholder="Login" class="login-input" />
         <input v-model="senha" type="password" placeholder="Senha" class="login-input" />
+        <template v-if="modoCadastro">
+          <input v-model="nome" placeholder="Nome completo (opcional)" class="login-input" />
+          <input v-model="telefone" placeholder="Telefone (opcional)" class="login-input" />
+        </template>
       </div>
 
       <button @click="enviar" class="login-button login-button-primary">
@@ -31,6 +35,8 @@ import { definirUsuarioLogado } from '@/stores/usuario';
 const router = useRouter();
 const loginInput = ref('');
 const senha = ref('');
+const nome = ref('');
+const telefone = ref('');
 const modoCadastro = ref(false);
 const mensagem = ref('');
 
@@ -38,12 +44,14 @@ async function enviar() {
   mensagem.value = '';
   try {
     if (modoCadastro.value) {
-      await register(loginInput.value, senha.value);
+      await register(loginInput.value, senha.value, nome.value, telefone.value);
       mensagem.value = 'Cadastro realizado! Agora você pode fazer login.';
       modoCadastro.value = false;
+      nome.value = '';
+      telefone.value = '';
     } else {
       const data = await loginApi(loginInput.value, senha.value);
-      definirUsuarioLogado(data.login, data.token);
+      definirUsuarioLogado(data.login, data.token, data.nome, data.telefone);
       router.push('/perfil');
     }
   } catch (err) {

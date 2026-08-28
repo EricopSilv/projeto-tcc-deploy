@@ -1,11 +1,11 @@
 import { API_BASE } from './apiBase';
 import { estadoUsuario } from '@/stores/usuario';
 
-export async function register(login, senha) {
+export async function register(login, senha, nome, telefone) {
   const res = await fetch(`${API_BASE}/api/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ login, senha }),
+    body: JSON.stringify({ login, senha, nome, telefone }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Erro ao cadastrar');
