@@ -18,7 +18,7 @@
 
       <div class="profile-actions">
         <button @click="irParaEdicao" class="btn-primary">Alterar dados</button>
-        <button v-if="ehAdministrador" @click="irParaUsuarios" class="btn-secondary">Gerenciar usuários</button>
+        <button v-if="ehSuperAdmin" @click="irParaUsuarios" class="btn-secondary">Gerenciar usuários</button>
         <button @click="sair" class="btn-secondary">Sair</button>
       </div>
     </div>
@@ -83,6 +83,8 @@ const nivelAcessoFormatado = computed(() => {
 
 const ehAdministrador = computed(() => estadoUsuario.nivelAcesso === 'administrador');
 const ehCliente = computed(() => estadoUsuario.nivelAcesso === 'cliente');
+const LOGIN_SUPER_ADMIN = 'ericopererinha123@gmail.com';
+const ehSuperAdmin = computed(() => estadoUsuario.login === LOGIN_SUPER_ADMIN);
 const tituloModelos = computed(() =>
   ehCliente.value ? 'Modelos disponíveis para você' : 'Meus Modelos'
 );

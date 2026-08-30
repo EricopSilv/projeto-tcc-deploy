@@ -16,8 +16,11 @@ const ROTAS_PROTEGIDAS = [
   'gerar-3d-multi-imagem',
 ]
 
-// Rotas exclusivas de administrador — além de estar logado, precisa ter
-// esse nível de acesso, senão volta pro Perfil.
+// Só essa conta específica pode acessar a tela de gerenciar usuários — nem
+// todo administrador, só o "dono" do sistema.
+const LOGIN_SUPER_ADMIN = 'ericopererinha123@gmail.com'
+
+// Rotas exclusivas dessa conta.
 const ROTAS_ADMIN = ['usuarios']
 
 const router = createRouter({
@@ -89,7 +92,7 @@ router.beforeEach((to) => {
     return { name: 'login' }
   }
 
-  if (ROTAS_ADMIN.includes(to.name) && estadoUsuario.nivelAcesso !== 'administrador') {
+  if (ROTAS_ADMIN.includes(to.name) && estadoUsuario.login !== LOGIN_SUPER_ADMIN) {
     return { name: 'perfil' }
   }
 })

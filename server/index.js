@@ -145,6 +145,16 @@ function exigirNivel(...niveisPermitidos) {
   };
 }
 
+// Trava extra: mesmo entre contas "administrador", só uma pessoa específica
+// pode gerenciar as contas dos outros (aprovar, mudar nível, excluir). Fica
+// definida pela variável SUPER_ADMIN_LOGIN no Render, não fixa no código.
+function exigirSuperAdmin(req, res, next) {
+  if (req.usuarioLogin !== process.env.SUPER_ADMIN_LOGIN) {
+    return res.status(403).json({ error: 'Você não tem permissão para essa ação' });
+  }
+  next();
+}
+
 app.post('/api/login', limiteAuth, async (req, res) => {
   try {
     const { login, senha } = req.body;
@@ -386,7 +396,7 @@ app.get('/api/usuarios/clientes', autenticar, exigirNivel('administrador'), asyn
 // --- Gerenciamento de usuários (só administrador) ---
 
 // Lista todas as contas cadastradas, pra tela de gerenciamento.
-app.get('/api/admin/usuarios', autenticar, exigirNivel('administrador'), async (req, res) => {
+app.get('/api/admin/usuarios', autenticar, exigirSuperAdmin, async (req, res) => {
   try {
     const resultado = await pool.query(
       'SELECT login, nome, telefone, nivel_acesso FROM usuarios ORDER BY nivel_acesso, login'
@@ -404,7 +414,7 @@ app.get('/api/admin/usuarios', autenticar, exigirNivel('administrador'), async (
 // conta), essa aqui é exclusiva de administrador.
 const NIVEIS_VALIDOS = ['pendente', 'administrador', 'cliente'];
 
-app.put('/api/admin/usuarios/:login/nivel-acesso', autenticar, exigirNivel('administrador'), async (req, res) => {
+app.put('/api/admin/usuarios/:login/nivel-acesso', autenticar, exigirSuperAdmin, async (req, res) => {
   try {
     const { nivelAcesso } = req.body;
 
@@ -433,7 +443,7 @@ app.put('/api/admin/usuarios/:login/nivel-acesso', autenticar, exigirNivel('admi
 });
 
 // Exclui a conta de OUTRA pessoa (revogar de vez, não só mudar o nível).
-app.delete('/api/admin/usuarios/:login', autenticar, exigirNivel('administrador'), async (req, res) => {
+app.delete('/api/admin/usuarios/:login', autenticar, exigirSuperAdmin, async (req, res) => {
   try {
     if (req.params.login === req.usuarioLogin) {
       return res.status(400).json({ error: 'Use "Excluir minha conta" no seu próprio perfil para isso' });
