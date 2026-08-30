@@ -80,13 +80,6 @@ export async function getMeusModelos() {
   return data.modelos;
 }
 
-export async function getMeusModelos() {
-  const res = await fetch(`${API_BASE}/api/meus-modelos`, { headers: cabecalhosAuth() });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Falha ao buscar modelos');
-  return data.modelos;
-}
-
 export async function listarClientes() {
   const res = await fetch(`${API_BASE}/api/usuarios/clientes`, { headers: cabecalhosAuth() });
   const data = await res.json();

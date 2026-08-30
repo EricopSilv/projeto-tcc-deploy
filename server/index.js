@@ -145,41 +145,6 @@ function exigirNivel(...niveisPermitidos) {
   };
 }
 
-app.post('/api/register', limiteAuth, async (req, res) => {
-  try {
-    const { login, senha, nome, telefone } = req.body;
-    if (!login || !senha) {
-      return res.status(400).json({ error: 'Login e senha são obrigatórios' });
-    }
-
-    const senhaHash = await bcrypt.hash(senha, 10);
-
-    await pool.query(
-      'INSERT INTO usuarios (login, senha_hash, nome, telefone) VALUES ($1, $2, $3, $4)',
-      [login, senhaHash, nome || null, telefone || null]
-    );
-
-    // A conta já nasce com nível "pendente" (padrão da tabela). Cria uma
-    // solicitação de aprovação com um código único e avisa o administrador
-    // por e-mail, com um link que aprova o acesso em um clique.
-    const tokenSolicitacao = crypto.randomBytes(24).toString('hex');
-    await pool.query(
-      'INSERT INTO solicitacoes_acesso (usuario_login, token) VALUES ($1, $2)',
-      [login, tokenSolicitacao]
-    );
-    await enviarEmailAprovacao({ login, nome, token: tokenSolicitacao });
-
-    res.status(201).json({ message: 'Usuário cadastrado com sucesso' });
-  } catch (err) {
-    if (err.code === '23505') {
-      // erro do Postgres para violação de UNIQUE
-      return res.status(409).json({ error: 'Esse login já está em uso' });
-    }
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao cadastrar usuário' });
-  }
-});
-
 app.post('/api/login', limiteAuth, async (req, res) => {
   try {
     const { login, senha } = req.body;
