@@ -44,7 +44,6 @@ watch(() => route.fullPath, fecharMenu);
       <RouterLink to="/gerar-3d" class="sidebar-link" active-class="sidebar-link-active" @click="fecharMenu">Gerar 3D</RouterLink>
       <RouterLink v-if="!estadoUsuario.login" to="/login" class="sidebar-link" active-class="sidebar-link-active" @click="fecharMenu">Login</RouterLink>
       <RouterLink v-else to="/perfil" class="sidebar-link" active-class="sidebar-link-active" @click="fecharMenu">Perfil ({{ estadoUsuario.login }})</RouterLink>
-      <RouterLink v-if="estadoUsuario.login" to="/meus-modelos" class="sidebar-link" active-class="sidebar-link-active" @click="fecharMenu">Meus Modelos</RouterLink>
     </nav>
   </aside>
 
