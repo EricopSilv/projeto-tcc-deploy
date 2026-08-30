@@ -238,16 +238,16 @@ app.get('/api/solicitacoes/:token/aprovar', async (req, res) => {
 // que o dono do token só altera/exclui a própria conta, nunca a de outra pessoa.
 app.put('/api/usuarios/:login', autenticar, async (req, res) => {
   try {
+    const loginAtual = req.params.login;
+
+    if (req.usuarioLogin !== loginAtual) {
+      return res.status(403).json({ error: 'Você só pode alterar a própria conta' });
+    }
+
     const { novoLogin, novaSenha, novoNome, novoTelefone, novaFoto } = req.body;
 
     if (!novoLogin && !novaSenha && novoNome === undefined && novoTelefone === undefined && novaFoto === undefined) {
       return res.status(400).json({ error: 'Informe ao menos um campo para atualizar' });
-    }
-
-    // A foto já vem redimensionada/comprimida do navegador; esse limite é só
-    // uma trava de segurança contra um upload absurdamente grande.
-    if (novaFoto && novaFoto.length > 2_000_000) {
-      return res.status(400).json({ error: 'Imagem muito grande' });
     }
 
     // Monta o UPDATE dinamicamente, só com os campos que realmente vieram no
