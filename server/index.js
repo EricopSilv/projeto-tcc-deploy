@@ -351,6 +351,8 @@ app.delete('/api/usuarios/:login', autenticar, async (req, res) => {
   }
 });
 
+// Lista os modelos 3D já gerados pelo usuário logado, do mais recente pro
+// mais antigo — usado na tela de Perfil.
 app.get('/api/meus-modelos', autenticar, async (req, res) => {
   try {
     const resultado = await pool.query(

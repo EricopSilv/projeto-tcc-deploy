@@ -13,7 +13,6 @@ const ROTAS_PROTEGIDAS = [
   'gerar-3d-texto',
   'gerar-3d-imagem',
   'gerar-3d-multi-imagem',
-  'meus-modelos',
 ]
 
 const router = createRouter({
@@ -69,11 +68,6 @@ const router = createRouter({
     {
       path: '/:pathMatch(.*)*',
       redirect: '/gerar-3d',
-    },
-    {
-      path: '/meus-modelos',
-      name: 'meus-modelos',
-      component: () => import('../views/MeusModelosView.vue'),
     },
   ],
 })
