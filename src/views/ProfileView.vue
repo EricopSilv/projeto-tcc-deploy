@@ -1,6 +1,8 @@
 <template>
   <div class="profile-page">
-    <div class="profile-card">
+      <div class="profile-card">
+      <img :src="estadoUsuario.foto || avatarPadrao" alt="Foto de perfil" class="profile-foto" />
+
       <h1 class="profile-title">
         Bem-vindo, <span class="profile-highlight">{{ estadoUsuario.nome || estadoUsuario.login }}</span>!
       </h1>
@@ -69,6 +71,7 @@ import { estadoUsuario, limparUsuarioLogado } from '@/stores/usuario';
 import { getMeusModelos, listarClientes, atribuirModeloCliente } from '@/services/meshy';
 import { API_BASE } from '@/services/apiBase';
 import ModelViewer from '@/components/ModelViewer.vue';
+import avatarPadrao from '@/assets/avatar-padrao.svg';
 
 const router = useRouter();
 

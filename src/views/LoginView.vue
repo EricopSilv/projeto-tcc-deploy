@@ -57,7 +57,7 @@ async function enviar() {
       tipoConta.value = 'administrador';
     } else {
       const data = await loginApi(loginInput.value, senha.value);
-      definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso);
+        definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso, data.foto);
       router.push('/perfil');
     }
   } catch (err) {

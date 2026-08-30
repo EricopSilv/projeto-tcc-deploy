@@ -153,7 +153,7 @@ app.post('/api/login', limiteAuth, async (req, res) => {
     }
 
     const result = await pool.query(
-      'SELECT login, senha_hash, nome, telefone, nivel_acesso FROM usuarios WHERE login = $1',
+      'SELECT login, senha_hash, nome, telefone, nivel_acesso, foto_perfil FROM usuarios WHERE login = $1',
       [login]
     );
     const usuario = result.rows[0];
@@ -175,6 +175,7 @@ app.post('/api/login', limiteAuth, async (req, res) => {
       nome: usuario.nome,
       telefone: usuario.telefone,
       nivelAcesso: usuario.nivel_acesso,
+      foto: usuario.foto_perfil,
       token,
     });
   } catch (err) {
@@ -237,16 +238,16 @@ app.get('/api/solicitacoes/:token/aprovar', async (req, res) => {
 // que o dono do token só altera/exclui a própria conta, nunca a de outra pessoa.
 app.put('/api/usuarios/:login', autenticar, async (req, res) => {
   try {
-    const loginAtual = req.params.login;
+    const { novoLogin, novaSenha, novoNome, novoTelefone, novaFoto } = req.body;
 
-    if (req.usuarioLogin !== loginAtual) {
-      return res.status(403).json({ error: 'Você só pode alterar a própria conta' });
+    if (!novoLogin && !novaSenha && novoNome === undefined && novoTelefone === undefined && novaFoto === undefined) {
+      return res.status(400).json({ error: 'Informe ao menos um campo para atualizar' });
     }
 
-    const { novoLogin, novaSenha, novoNome, novoTelefone } = req.body;
-
-    if (!novoLogin && !novaSenha && novoNome === undefined && novoTelefone === undefined) {
-      return res.status(400).json({ error: 'Informe ao menos um campo para atualizar' });
+    // A foto já vem redimensionada/comprimida do navegador; esse limite é só
+    // uma trava de segurança contra um upload absurdamente grande.
+    if (novaFoto && novaFoto.length > 2_000_000) {
+      return res.status(400).json({ error: 'Imagem muito grande' });
     }
 
     // Monta o UPDATE dinamicamente, só com os campos que realmente vieram no
@@ -273,10 +274,14 @@ app.put('/api/usuarios/:login', autenticar, async (req, res) => {
       campos.push(`telefone = $${indice++}`);
       valores.push(novoTelefone || null);
     }
+    if (novaFoto !== undefined) {
+      campos.push(`foto_perfil = $${indice++}`);
+      valores.push(novaFoto || null);
+    }
 
     valores.push(loginAtual);
     const resultado = await pool.query(
-      `UPDATE usuarios SET ${campos.join(', ')} WHERE login = $${indice} RETURNING login, nome, telefone, nivel_acesso`,
+      `UPDATE usuarios SET ${campos.join(', ')} WHERE login = $${indice} RETURNING login, nome, telefone, nivel_acesso, foto_perfil`,
       valores
     );
 
@@ -291,6 +296,7 @@ app.put('/api/usuarios/:login', autenticar, async (req, res) => {
       nome: usuarioAtualizado.nome,
       telefone: usuarioAtualizado.telefone,
       nivelAcesso: usuarioAtualizado.nivel_acesso,
+      foto: usuarioAtualizado.foto_perfil,
       token,
     });
   } catch (err) {

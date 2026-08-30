@@ -7,6 +7,14 @@
         Login atual: <strong class="edit-profile-highlight">{{ estadoUsuario.login }}</strong>
       </p>
 
+      <div class="edit-profile-foto">
+        <img :src="previaFoto || estadoUsuario.foto || avatarPadrao" alt="Foto de perfil" class="edit-profile-foto-img" />
+        <label class="btn-secondary edit-profile-foto-label">
+          Escolher foto
+          <input type="file" accept="image/*" @change="selecionarFoto" class="edit-profile-foto-input" />
+        </label>
+      </div>
+
       <div class="edit-profile-fields">
         <input v-model="novoLogin" placeholder="Novo login (opcional)" class="input-field" />
         <input v-model="novaSenha" type="password" placeholder="Nova senha (opcional)" class="input-field" />
@@ -31,6 +39,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { updateUser, deleteUser } from '@/services/auth';
 import { estadoUsuario, definirUsuarioLogado, limparUsuarioLogado } from '@/stores/usuario';
+import avatarPadrao from '@/assets/avatar-padrao.svg';
 
 const router = useRouter();
 const novoLogin = ref('');
@@ -42,6 +51,47 @@ const novoNome = ref(estadoUsuario.nome || '');
 const novoTelefone = ref(estadoUsuario.telefone || '');
 const mensagem = ref('');
 
+const previaFoto = ref('');
+let fotoBase64Selecionada = '';
+
+// Redimensiona a imagem no navegador (máx. 300px no lado maior, JPEG 80%)
+// antes de mandar pro backend — assim o arquivo fica pequeno o bastante pra
+// salvar como texto (base64) direto numa coluna do banco, sem precisar de
+// um serviço externo de hospedagem de imagens.
+function redimensionarImagem(file, maxLado = 300, qualidade = 0.8) {
+  return new Promise((resolve, reject) => {
+    const leitor = new FileReader();
+    leitor.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const escala = Math.min(1, maxLado / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * escala);
+        canvas.height = Math.round(img.height * escala);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', qualidade));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    leitor.onerror = reject;
+    leitor.readAsDataURL(file);
+  });
+}
+
+async function selecionarFoto(evento) {
+  const file = evento.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const dataUri = await redimensionarImagem(file);
+    fotoBase64Selecionada = dataUri;
+    previaFoto.value = dataUri;
+  } catch (err) {
+    mensagem.value = 'Não foi possível processar essa imagem.';
+  }
+}
+
 async function salvar() {
   mensagem.value = '';
   try {
@@ -50,11 +100,16 @@ async function salvar() {
       novaSenha: novaSenha.value || undefined,
       novoNome: novoNome.value,
       novoTelefone: novoTelefone.value,
+      novaFoto: fotoBase64Selecionada || undefined,
     });
 
-    definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso);    novaSenha.value = '';
+    definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso, data.foto);
+    novoLogin.value = '';
+    novaSenha.value = '';
     novoNome.value = data.nome || '';
     novoTelefone.value = data.telefone || '';
+    fotoBase64Selecionada = '';
+    previaFoto.value = '';
     mensagem.value = 'Dados atualizados com sucesso!';
   } catch (err) {
     mensagem.value = err.message;
