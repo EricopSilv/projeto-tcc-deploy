@@ -1,7 +1,6 @@
 /* Estilos da página de Perfil — CSS puro, sem Tailwind. */
 
 .profile-page {
-  min-height: 70vh;
   padding: 2rem 1rem;
 }
 
@@ -53,11 +52,12 @@
   gap: 0.75rem;
 }
 
+/* Os botões usam as classes globais .btn-primary/.btn-secondary (main.css),
+   aqui só garantimos que eles ocupam a largura toda do card. */
 .profile-actions > * {
   width: 100%;
 }
 
-/* --- Seção "Meus Modelos", abaixo do card de perfil --- */
 .profile-modelos {
   max-width: 60rem;
   margin: 0 auto;
@@ -71,8 +71,8 @@
 }
 
 .profile-modelos-status {
-  text-align: center;
   color: var(--color-border);
+  text-align: center;
 }
 
 .profile-modelos-grid {
@@ -86,13 +86,11 @@
   border: 1px solid var(--color-border);
   border-radius: 1rem;
   padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
 }
 
 .profile-modelos-tipo {
   font-weight: 600;
+  margin-top: 0.75rem;
 }
 
 .profile-modelos-descricao {
@@ -103,10 +101,38 @@
 .profile-modelos-data {
   color: var(--color-border);
   font-size: 0.8rem;
+  margin-top: 0.25rem;
 }
 
 .profile-modelos-download-link {
+  display: inline-block;
+  margin-top: 0.5rem;
   color: var(--color-accent-hover);
-  text-decoration: underline;
-  font-size: 0.9rem;
+}
+
+.profile-modelos-atribuir {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.profile-modelos-atribuir-label {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 0.25rem;
+}
+
+.profile-modelos-atribuir-select {
+  width: 100%;
+  padding: 0.4rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg);
+  color: inherit;
+}
+
+.profile-modelos-atribuir-msg {
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+  color: var(--color-accent-hover);
 }

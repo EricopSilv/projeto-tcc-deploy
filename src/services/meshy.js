@@ -79,3 +79,28 @@ export async function getMeusModelos() {
   if (!res.ok) throw new Error(data.error || 'Falha ao buscar modelos');
   return data.modelos;
 }
+
+export async function getMeusModelos() {
+  const res = await fetch(`${API_BASE}/api/meus-modelos`, { headers: cabecalhosAuth() });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Falha ao buscar modelos');
+  return data.modelos;
+}
+
+export async function listarClientes() {
+  const res = await fetch(`${API_BASE}/api/usuarios/clientes`, { headers: cabecalhosAuth() });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Falha ao listar clientes');
+  return data.clientes;
+}
+
+export async function atribuirModeloCliente(modeloId, clienteLogin) {
+  const res = await fetch(`${API_BASE}/api/modelos/${modeloId}/atribuir-cliente`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...cabecalhosAuth() },
+    body: JSON.stringify({ clienteLogin }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Falha ao atribuir modelo');
+  return data;
+}

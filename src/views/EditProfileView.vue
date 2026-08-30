@@ -52,9 +52,7 @@ async function salvar() {
       novoTelefone: novoTelefone.value,
     });
 
-    definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso);
-    novoLogin.value = '';
-    novaSenha.value = '';
+    definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso);    novaSenha.value = '';
     novoNome.value = data.nome || '';
     novoTelefone.value = data.telefone || '';
     mensagem.value = 'Dados atualizados com sucesso!';

@@ -351,22 +351,113 @@ app.delete('/api/usuarios/:login', autenticar, async (req, res) => {
   }
 });
 
-// Lista os modelos 3D já gerados pelo usuário logado, do mais recente pro
-// mais antigo — usado na tela de Perfil.
-app.get('/api/meus-modelos', autenticar, async (req, res) => {
+app.post('/api/register', limiteAuth, async (req, res) => {
   try {
-    const resultado = await pool.query(
-      `SELECT id, tipo, descricao, url_modelo, criado_em
-       FROM modelos_3d
-       WHERE usuario_login = $1
-       ORDER BY criado_em DESC`,
-      [req.usuarioLogin]
+    const { login, senha, nome, telefone, tipoConta } = req.body;
+    if (!login || !senha) {
+      return res.status(400).json({ error: 'Login e senha são obrigatórios' });
+    }
+
+    // Só aceita 'administrador' ou 'cliente' — qualquer outra coisa (ou nada)
+    // cai no fluxo de administrador, que é o mais restrito por padrão.
+    const nivelDesejado = tipoConta === 'cliente' ? 'cliente' : 'administrador';
+
+    const senhaHash = await bcrypt.hash(senha, 10);
+
+    if (nivelDesejado === 'cliente') {
+      // Conta Cliente não precisa de aprovação: ela só visualiza modelos que
+      // um administrador atribuir a ela, não gera nada nem gasta créditos.
+      await pool.query(
+        "INSERT INTO usuarios (login, senha_hash, nome, telefone, nivel_acesso) VALUES ($1, $2, $3, $4, 'cliente')",
+        [login, senhaHash, nome || null, telefone || null]
+      );
+      return res.status(201).json({ message: 'Usuário cadastrado com sucesso' });
+    }
+
+    // Fluxo existente: administrador nasce "pendente" (padrão da tabela) e
+    // precisa ser aprovado por e-mail.
+    await pool.query(
+      'INSERT INTO usuarios (login, senha_hash, nome, telefone) VALUES ($1, $2, $3, $4)',
+      [login, senhaHash, nome || null, telefone || null]
     );
 
+    const tokenSolicitacao = crypto.randomBytes(24).toString('hex');
+    await pool.query(
+      'INSERT INTO solicitacoes_acesso (usuario_login, token) VALUES ($1, $2)',
+      [login, tokenSolicitacao]
+    );
+    await enviarEmailAprovacao({ login, nome, token: tokenSolicitacao });
+
+    res.status(201).json({ message: 'Usuário cadastrado com sucesso' });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Esse login já está em uso' });
+    }
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao cadastrar usuário' });
+  }
+});
+
+// Lista os logins de contas "cliente" — usada no Perfil do administrador pra
+// montar o seletor de "atribuir esse modelo a qual cliente".
+app.get('/api/usuarios/clientes', autenticar, exigirNivel('administrador'), async (req, res) => {
+  try {
+    const resultado = await pool.query(
+      "SELECT login, nome FROM usuarios WHERE nivel_acesso = 'cliente' ORDER BY login"
+    );
+    res.json({ clientes: resultado.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao listar clientes' });
+  }
+});
+
+// Atribui (ou remove a atribuição de) um modelo a um cliente. Só o próprio
+// administrador que gerou o modelo pode atribuí-lo — evita que um admin
+// mexa em modelos gerados por outro.
+app.put('/api/modelos/:id/atribuir-cliente', autenticar, exigirNivel('administrador'), async (req, res) => {
+  try {
+    const { clienteLogin } = req.body; // login do cliente, ou null pra remover
+
+    const modelo = await pool.query('SELECT usuario_login FROM modelos_3d WHERE id = $1', [req.params.id]);
+    if (!modelo.rows[0]) {
+      return res.status(404).json({ error: 'Modelo não encontrado' });
+    }
+    if (modelo.rows[0].usuario_login !== req.usuarioLogin) {
+      return res.status(403).json({ error: 'Você só pode atribuir modelos que você mesmo gerou' });
+    }
+
+    if (clienteLogin) {
+      const cliente = await pool.query(
+        "SELECT login FROM usuarios WHERE login = $1 AND nivel_acesso = 'cliente'",
+        [clienteLogin]
+      );
+      if (!cliente.rows[0]) {
+        return res.status(400).json({ error: 'Esse login não corresponde a uma conta cliente' });
+      }
+    }
+
+    await pool.query('UPDATE modelos_3d SET cliente_login = $1 WHERE id = $2', [clienteLogin || null, req.params.id]);
+    res.json({ message: 'Atribuição atualizada com sucesso' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao atribuir modelo ao cliente' });
+  }
+});
+
+// Lista os modelos do usuário logado: administrador vê o que ELE gerou,
+// cliente vê o que foi ATRIBUÍDO a ele.
+app.get('/api/meus-modelos', autenticar, async (req, res) => {
+  try {
+    const query = req.usuarioNivelAcesso === 'cliente'
+      ? 'SELECT id, tipo, descricao, url_modelo, criado_em, cliente_login FROM modelos_3d WHERE cliente_login = $1 ORDER BY criado_em DESC'
+      : 'SELECT id, tipo, descricao, url_modelo, criado_em, cliente_login FROM modelos_3d WHERE usuario_login = $1 ORDER BY criado_em DESC';
+
+    const resultado = await pool.query(query, [req.usuarioLogin]);
     res.json({ modelos: resultado.rows });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erro ao buscar modelos' });
+    res.status(500).json({ error: 'Erro ao listar modelos' });
   }
 });
 

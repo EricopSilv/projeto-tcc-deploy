@@ -9,6 +9,10 @@
         <template v-if="modoCadastro">
           <input v-model="nome" placeholder="Nome completo (opcional)" class="login-input" />
           <input v-model="telefone" placeholder="Telefone (opcional)" class="login-input" />
+          <select v-model="tipoConta" class="login-input">
+            <option value="administrador">Administrador (crio modelos 3D)</option>
+            <option value="cliente">Cliente (recebo modelos já criados)</option>
+          </select>
         </template>
       </div>
 
@@ -37,6 +41,7 @@ const loginInput = ref('');
 const senha = ref('');
 const nome = ref('');
 const telefone = ref('');
+const tipoConta = ref('administrador');
 const modoCadastro = ref(false);
 const mensagem = ref('');
 
@@ -44,11 +49,12 @@ async function enviar() {
   mensagem.value = '';
   try {
     if (modoCadastro.value) {
-      await register(loginInput.value, senha.value, nome.value, telefone.value);
+      await register(loginInput.value, senha.value, nome.value, telefone.value, tipoConta.value);
       mensagem.value = 'Cadastro realizado! Agora você pode fazer login.';
       modoCadastro.value = false;
       nome.value = '';
       telefone.value = '';
+      tipoConta.value = 'administrador';
     } else {
       const data = await loginApi(loginInput.value, senha.value);
       definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso);
