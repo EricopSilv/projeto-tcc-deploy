@@ -9,11 +9,16 @@ import { estadoUsuario } from '../stores/usuario'
 const ROTAS_PROTEGIDAS = [
   'perfil',
   'editar-perfil',
+  'usuarios',
   'gerar-3d',
   'gerar-3d-texto',
   'gerar-3d-imagem',
   'gerar-3d-multi-imagem',
 ]
+
+// Rotas exclusivas de administrador — além de estar logado, precisa ter
+// esse nível de acesso, senão volta pro Perfil.
+const ROTAS_ADMIN = ['usuarios']
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -57,6 +62,11 @@ const router = createRouter({
       name: 'editar-perfil',
       component: () => import('../views/EditProfileView.vue'),
     },
+    {
+      path: '/perfil/usuarios',
+      name: 'usuarios',
+      component: () => import('../views/UsuariosView.vue'),
+    },
     // A captura pelo celular fica de fora das rotas protegidas de propósito:
     // quem abre pelo QR code normalmente não está logado nesse aparelho.
     {
@@ -77,6 +87,10 @@ const router = createRouter({
 router.beforeEach((to) => {
   if (ROTAS_PROTEGIDAS.includes(to.name) && !estadoUsuario.login) {
     return { name: 'login' }
+  }
+
+  if (ROTAS_ADMIN.includes(to.name) && estadoUsuario.nivelAcesso !== 'administrador') {
+    return { name: 'perfil' }
   }
 })
 

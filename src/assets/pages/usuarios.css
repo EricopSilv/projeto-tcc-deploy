@@ -1,0 +1,90 @@
+/* Estilos da página de Gerenciar Usuários — CSS puro, sem Tailwind. */
+
+.usuarios-page {
+  max-width: 50rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.usuarios-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+
+.usuarios-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.usuarios-status {
+  color: var(--color-border);
+  text-align: center;
+}
+
+.usuarios-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.usuarios-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  position: relative;
+}
+
+.usuarios-card-info {
+  flex: 1;
+  min-width: 10rem;
+}
+
+.usuarios-card-login {
+  font-weight: 700;
+}
+
+.usuarios-card-detalhe {
+  color: var(--color-border);
+  font-size: 0.85rem;
+}
+
+.usuarios-card-voce {
+  color: var(--color-border);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.usuarios-card-acao {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.usuarios-select {
+  padding: 0.4rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg);
+  color: inherit;
+}
+
+.usuarios-btn-salvar,
+.usuarios-btn-excluir {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.usuarios-card-mensagem {
+  width: 100%;
+  font-size: 0.8rem;
+  color: var(--color-accent-hover);
+}

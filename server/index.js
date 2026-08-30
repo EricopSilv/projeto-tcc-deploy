@@ -383,6 +383,75 @@ app.get('/api/usuarios/clientes', autenticar, exigirNivel('administrador'), asyn
   }
 });
 
+// --- Gerenciamento de usuários (só administrador) ---
+
+// Lista todas as contas cadastradas, pra tela de gerenciamento.
+app.get('/api/admin/usuarios', autenticar, exigirNivel('administrador'), async (req, res) => {
+  try {
+    const resultado = await pool.query(
+      'SELECT login, nome, telefone, nivel_acesso FROM usuarios ORDER BY nivel_acesso, login'
+    );
+    res.json({ usuarios: resultado.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao listar usuários' });
+  }
+});
+
+// Muda o nível de acesso de OUTRA conta (aprovar um pendente, promover um
+// cliente a administrador, revogar um administrador etc.). Diferente da
+// rota PUT /api/usuarios/:login (que só deixa a pessoa mexer na própria
+// conta), essa aqui é exclusiva de administrador.
+const NIVEIS_VALIDOS = ['pendente', 'administrador', 'cliente'];
+
+app.put('/api/admin/usuarios/:login/nivel-acesso', autenticar, exigirNivel('administrador'), async (req, res) => {
+  try {
+    const { nivelAcesso } = req.body;
+
+    if (!NIVEIS_VALIDOS.includes(nivelAcesso)) {
+      return res.status(400).json({ error: 'Nível de acesso inválido' });
+    }
+
+    if (req.params.login === req.usuarioLogin) {
+      return res.status(400).json({ error: 'Você não pode alterar o nível da sua própria conta por aqui' });
+    }
+
+    const resultado = await pool.query(
+      'UPDATE usuarios SET nivel_acesso = $1 WHERE login = $2 RETURNING login',
+      [nivelAcesso, req.params.login]
+    );
+
+    if (!resultado.rows[0]) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    res.json({ message: 'Nível de acesso atualizado com sucesso' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao atualizar nível de acesso' });
+  }
+});
+
+// Exclui a conta de OUTRA pessoa (revogar de vez, não só mudar o nível).
+app.delete('/api/admin/usuarios/:login', autenticar, exigirNivel('administrador'), async (req, res) => {
+  try {
+    if (req.params.login === req.usuarioLogin) {
+      return res.status(400).json({ error: 'Use "Excluir minha conta" no seu próprio perfil para isso' });
+    }
+
+    const resultado = await pool.query('DELETE FROM usuarios WHERE login = $1 RETURNING login', [req.params.login]);
+
+    if (!resultado.rows[0]) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    res.json({ message: 'Conta excluída com sucesso' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao excluir usuário' });
+  }
+});
+
 // Atribui (ou remove a atribuição de) um modelo a um cliente. Só o próprio
 // administrador que gerou o modelo pode atribuí-lo — evita que um admin
 // mexa em modelos gerados por outro.

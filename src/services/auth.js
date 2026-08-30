@@ -52,3 +52,36 @@ export async function deleteUser(login) {
   if (!res.ok) throw new Error(data.error || 'Erro ao excluir usuário');
   return data;
 }
+
+export async function listarTodosUsuarios() {
+  const res = await fetch(`${API_BASE}/api/admin/usuarios`, {
+    headers: { Authorization: `Bearer ${estadoUsuario.token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Erro ao listar usuários');
+  return data.usuarios;
+}
+
+export async function alterarNivelAcesso(login, nivelAcesso) {
+  const res = await fetch(`${API_BASE}/api/admin/usuarios/${login}/nivel-acesso`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${estadoUsuario.token}`,
+    },
+    body: JSON.stringify({ nivelAcesso }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Erro ao atualizar nível de acesso');
+  return data;
+}
+
+export async function excluirContaAdmin(login) {
+  const res = await fetch(`${API_BASE}/api/admin/usuarios/${login}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${estadoUsuario.token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Erro ao excluir usuário');
+  return data;
+}

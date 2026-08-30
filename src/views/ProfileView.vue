@@ -18,6 +18,7 @@
 
       <div class="profile-actions">
         <button @click="irParaEdicao" class="btn-primary">Alterar dados</button>
+        <button v-if="ehAdministrador" @click="irParaUsuarios" class="btn-secondary">Gerenciar usuários</button>
         <button @click="sair" class="btn-secondary">Sair</button>
       </div>
     </div>
@@ -88,6 +89,10 @@ const tituloModelos = computed(() =>
 
 function irParaEdicao() {
   router.push('/perfil/editar');
+}
+
+function irParaUsuarios() {
+  router.push('/perfil/usuarios');
 }
 
 function sair() {
