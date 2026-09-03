@@ -6,6 +6,7 @@ const nomeSalvo = localStorage.getItem('usuarioNome');
 const telefoneSalvo = localStorage.getItem('usuarioTelefone');
 const nivelAcessoSalvo = localStorage.getItem('usuarioNivelAcesso');
 const fotoSalva = localStorage.getItem('usuarioFoto');
+const emailSalvo = localStorage.getItem('usuarioEmail');
 
 export const estadoUsuario = reactive({
   login: usuarioSalvo || null,
@@ -20,15 +21,17 @@ export const estadoUsuario = reactive({
   // esse header enorme — algumas hospedagens/proxies rejeitam headers muito
   // grandes. Por isso ela viaja separada, só nas respostas de login/edição.
   foto: fotoSalva || null,
+  email: emailSalvo || null,
 });
 
-export function definirUsuarioLogado(login, token, nome, telefone, nivelAcesso, foto) {
+export function definirUsuarioLogado(login, token, nome, telefone, nivelAcesso, foto, email) {
   estadoUsuario.login = login;
   estadoUsuario.token = token || null;
   estadoUsuario.nome = nome || null;
   estadoUsuario.telefone = telefone || null;
   estadoUsuario.nivelAcesso = nivelAcesso || null;
   estadoUsuario.foto = foto || null;
+  estadoUsuario.email = email || null;
 
   localStorage.setItem('usuarioLogado', login);
   if (token) {
@@ -60,6 +63,12 @@ export function definirUsuarioLogado(login, token, nome, telefone, nivelAcesso, 
   } else {
     localStorage.removeItem('usuarioFoto');
   }
+
+  if (email) {
+    localStorage.setItem('usuarioEmail', email);
+  } else {
+    localStorage.removeItem('usuarioEmail');
+  }
 }
 
 export function limparUsuarioLogado() {
@@ -69,10 +78,12 @@ export function limparUsuarioLogado() {
   estadoUsuario.telefone = null;
   estadoUsuario.nivelAcesso = null;
   estadoUsuario.foto = null;
+  estadoUsuario.email = null;
   localStorage.removeItem('usuarioLogado');
   localStorage.removeItem('tokenAcesso');
   localStorage.removeItem('usuarioNome');
   localStorage.removeItem('usuarioTelefone');
   localStorage.removeItem('usuarioNivelAcesso');
   localStorage.removeItem('usuarioFoto');
+  localStorage.removeItem('usuarioEmail');
 }

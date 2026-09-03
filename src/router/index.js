@@ -56,6 +56,16 @@ const router = createRouter({
       component: () => import('../views/LoginView.vue'),
     },
     {
+      path: '/esqueci-senha',
+      name: 'esqueci-senha',
+      component: () => import('../views/EsqueciSenhaView.vue'),
+    },
+    {
+      path: '/redefinir-senha',
+      name: 'redefinir-senha',
+      component: () => import('../views/RedefinirSenhaView.vue'),
+    },
+    {
       path: '/perfil',
       name: 'perfil',
       component: () => import('../views/ProfileView.vue'),

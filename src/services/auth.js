@@ -1,11 +1,11 @@
 import { API_BASE } from './apiBase';
 import { estadoUsuario } from '@/stores/usuario';
 
-export async function register(login, senha, nome, telefone, tipoConta) {
+export async function register(login, senha, nome, telefone, tipoConta, email) {
   const res = await fetch(`${API_BASE}/api/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ login, senha, nome, telefone, tipoConta }),
+    body: JSON.stringify({ login, senha, nome, telefone, tipoConta, email }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Erro ao cadastrar');
@@ -83,5 +83,27 @@ export async function excluirContaAdmin(login) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Erro ao excluir usuário');
+  return data;
+}
+
+export async function esqueciSenha(login) {
+  const res = await fetch(`${API_BASE}/api/esqueci-senha`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ login }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Erro ao pedir redefinição de senha');
+  return data;
+}
+
+export async function redefinirSenha(token, novaSenha) {
+  const res = await fetch(`${API_BASE}/api/redefinir-senha`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, novaSenha }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Erro ao redefinir senha');
   return data;
 }

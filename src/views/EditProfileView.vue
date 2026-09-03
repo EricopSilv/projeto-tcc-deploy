@@ -20,6 +20,7 @@
         <input v-model="novaSenha" type="password" placeholder="Nova senha (opcional)" class="input-field" />
         <input v-model="novoNome" placeholder="Nome completo" class="input-field" />
         <input v-model="novoTelefone" placeholder="Telefone" class="input-field" />
+        <input v-model="novoEmail" type="email" placeholder="E-mail" class="input-field" />
       </div>
 
       <div class="edit-profile-actions">
@@ -49,6 +50,7 @@ const novaSenha = ref('');
 // diretamente em cima do que já está salvo.
 const novoNome = ref(estadoUsuario.nome || '');
 const novoTelefone = ref(estadoUsuario.telefone || '');
+const novoEmail = ref(estadoUsuario.email || '');
 const mensagem = ref('');
 
 const previaFoto = ref('');
@@ -100,14 +102,16 @@ async function salvar() {
       novaSenha: novaSenha.value || undefined,
       novoNome: novoNome.value,
       novoTelefone: novoTelefone.value,
+      novoEmail: novoEmail.value,
       novaFoto: fotoBase64Selecionada || undefined,
     });
 
-    definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso, data.foto);
+    definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso, data.foto, data.email);
     novoLogin.value = '';
     novaSenha.value = '';
     novoNome.value = data.nome || '';
     novoTelefone.value = data.telefone || '';
+    novoEmail.value = data.email || '';
     fotoBase64Selecionada = '';
     previaFoto.value = '';
     mensagem.value = 'Dados atualizados com sucesso!';

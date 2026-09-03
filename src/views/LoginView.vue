@@ -7,6 +7,7 @@
         <input v-model="loginInput" placeholder="Login" class="login-input" />
         <input v-model="senha" type="password" placeholder="Senha" class="login-input" />
         <template v-if="modoCadastro">
+          <input v-model="email" type="email" placeholder="E-mail (opcional, mas necessário pra recuperar a senha)" class="login-input" />
           <input v-model="nome" placeholder="Nome completo (opcional)" class="login-input" />
           <input v-model="telefone" placeholder="Telefone (opcional)" class="login-input" />
           <select v-model="tipoConta" class="login-input">
@@ -23,6 +24,8 @@
       <button @click="modoCadastro = !modoCadastro" class="login-button login-button-secondary">
         {{ modoCadastro ? 'Já tenho conta, fazer login' : 'Não tenho conta, cadastrar' }}
       </button>
+
+      <RouterLink v-if="!modoCadastro" to="/esqueci-senha" class="login-link">Esqueci minha senha</RouterLink>
 
       <p v-if="mensagem" class="login-message">{{ mensagem }}</p>
     </div>
@@ -41,6 +44,7 @@ const loginInput = ref('');
 const senha = ref('');
 const nome = ref('');
 const telefone = ref('');
+const email = ref('');
 const tipoConta = ref('administrador');
 const modoCadastro = ref(false);
 const mensagem = ref('');
@@ -49,15 +53,16 @@ async function enviar() {
   mensagem.value = '';
   try {
     if (modoCadastro.value) {
-      await register(loginInput.value, senha.value, nome.value, telefone.value, tipoConta.value);
+      await register(loginInput.value, senha.value, nome.value, telefone.value, tipoConta.value, email.value);
       mensagem.value = 'Cadastro realizado! Agora você pode fazer login.';
       modoCadastro.value = false;
       nome.value = '';
       telefone.value = '';
+      email.value = '';
       tipoConta.value = 'administrador';
     } else {
       const data = await loginApi(loginInput.value, senha.value);
-        definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso, data.foto);
+      definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso, data.foto, data.email);
       router.push('/perfil');
     }
   } catch (err) {

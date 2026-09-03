@@ -92,6 +92,49 @@ async function enviarEmailAprovacao({ login, nome, token }) {
   }
 }
 
+// --- E-mail de redefinição de senha ---
+// Mesmo aviso da função acima: sem domínio próprio verificado na Resend, só
+// entrega de verdade pro e-mail dono da conta Resend (o mesmo ADMIN_EMAIL).
+// Pra outras contas a chamada nem dá erro — só não chega e-mail nenhum. Fica
+// assim por enquanto; quando um domínio for verificado lá, passa a funcionar
+// pra qualquer e-mail sem mudar nada aqui.
+async function enviarEmailRedefinicao({ email, login, token }) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('E-mail de redefinição não enviado: RESEND_API_KEY não configurada.');
+    return;
+  }
+
+  const linkRedefinicao = `${process.env.FRONTEND_URL}/redefinir-senha?token=${token}`;
+
+  try {
+    const resposta = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: 'VisionFade <onboarding@resend.dev>',
+        to: [email],
+        subject: 'Redefinição de senha - VisionFade',
+        html: `
+          <p>Login: <strong>${login}</strong></p>
+          <p>Recebemos um pedido para redefinir sua senha. Se foi você, clique no link abaixo (válido por 1 hora):</p>
+          <p><a href="${linkRedefinicao}">Redefinir minha senha</a></p>
+          <p>Se não foi você, pode ignorar este e-mail.</p>
+        `,
+      }),
+    });
+
+    if (!resposta.ok) {
+      const detalhes = await resposta.text();
+      console.error('Erro ao enviar e-mail de redefinição (Resend):', resposta.status, detalhes);
+    }
+  } catch (err) {
+    console.error('Erro ao enviar e-mail de redefinição:', err);
+  }
+}
+
 // --- Autenticação (JWT) ---
 // Gera um token com os dados do usuário, válido por 7 dias. Recebe um objeto
 // { login, nome, telefone, nivel_acesso } para que o front-end sempre tenha
@@ -163,7 +206,7 @@ app.post('/api/login', limiteAuth, async (req, res) => {
     }
 
     const result = await pool.query(
-      'SELECT login, senha_hash, nome, telefone, nivel_acesso, foto_perfil FROM usuarios WHERE login = $1',
+      'SELECT login, senha_hash, nome, telefone, nivel_acesso, foto_perfil, email FROM usuarios WHERE login = $1',
       [login]
     );
     const usuario = result.rows[0];
@@ -186,6 +229,7 @@ app.post('/api/login', limiteAuth, async (req, res) => {
       telefone: usuario.telefone,
       nivelAcesso: usuario.nivel_acesso,
       foto: usuario.foto_perfil,
+      email: usuario.email,
       token,
     });
   } catch (err) {
@@ -254,9 +298,12 @@ app.put('/api/usuarios/:login', autenticar, async (req, res) => {
       return res.status(403).json({ error: 'Você só pode alterar a própria conta' });
     }
 
-    const { novoLogin, novaSenha, novoNome, novoTelefone, novaFoto } = req.body;
+    const { novoLogin, novaSenha, novoNome, novoTelefone, novoEmail, novaFoto } = req.body;
 
-    if (!novoLogin && !novaSenha && novoNome === undefined && novoTelefone === undefined && novaFoto === undefined) {
+    if (
+      !novoLogin && !novaSenha && novoNome === undefined &&
+      novoTelefone === undefined && novoEmail === undefined && novaFoto === undefined
+    ) {
       return res.status(400).json({ error: 'Informe ao menos um campo para atualizar' });
     }
 
@@ -284,6 +331,10 @@ app.put('/api/usuarios/:login', autenticar, async (req, res) => {
       campos.push(`telefone = $${indice++}`);
       valores.push(novoTelefone || null);
     }
+    if (novoEmail !== undefined) {
+      campos.push(`email = $${indice++}`);
+      valores.push(novoEmail || null);
+    }
     if (novaFoto !== undefined) {
       campos.push(`foto_perfil = $${indice++}`);
       valores.push(novaFoto || null);
@@ -291,7 +342,7 @@ app.put('/api/usuarios/:login', autenticar, async (req, res) => {
 
     valores.push(loginAtual);
     const resultado = await pool.query(
-      `UPDATE usuarios SET ${campos.join(', ')} WHERE login = $${indice} RETURNING login, nome, telefone, nivel_acesso, foto_perfil`,
+      `UPDATE usuarios SET ${campos.join(', ')} WHERE login = $${indice} RETURNING login, nome, telefone, nivel_acesso, foto_perfil, email`,
       valores
     );
 
@@ -307,6 +358,7 @@ app.put('/api/usuarios/:login', autenticar, async (req, res) => {
       telefone: usuarioAtualizado.telefone,
       nivelAcesso: usuarioAtualizado.nivel_acesso,
       foto: usuarioAtualizado.foto_perfil,
+      email: usuarioAtualizado.email,
       token,
     });
   } catch (err) {
@@ -334,7 +386,7 @@ app.delete('/api/usuarios/:login', autenticar, async (req, res) => {
 
 app.post('/api/register', limiteAuth, async (req, res) => {
   try {
-    const { login, senha, nome, telefone, tipoConta } = req.body;
+    const { login, senha, nome, telefone, tipoConta, email } = req.body;
     if (!login || !senha) {
       return res.status(400).json({ error: 'Login e senha são obrigatórios' });
     }
@@ -349,8 +401,8 @@ app.post('/api/register', limiteAuth, async (req, res) => {
       // Conta Cliente não precisa de aprovação: ela só visualiza modelos que
       // um administrador atribuir a ela, não gera nada nem gasta créditos.
       await pool.query(
-        "INSERT INTO usuarios (login, senha_hash, nome, telefone, nivel_acesso) VALUES ($1, $2, $3, $4, 'cliente')",
-        [login, senhaHash, nome || null, telefone || null]
+        "INSERT INTO usuarios (login, senha_hash, nome, telefone, email, nivel_acesso) VALUES ($1, $2, $3, $4, $5, 'cliente')",
+        [login, senhaHash, nome || null, telefone || null, email || null]
       );
       return res.status(201).json({ message: 'Usuário cadastrado com sucesso' });
     }
@@ -358,8 +410,8 @@ app.post('/api/register', limiteAuth, async (req, res) => {
     // Fluxo existente: administrador nasce "pendente" (padrão da tabela) e
     // precisa ser aprovado por e-mail.
     await pool.query(
-      'INSERT INTO usuarios (login, senha_hash, nome, telefone) VALUES ($1, $2, $3, $4)',
-      [login, senhaHash, nome || null, telefone || null]
+      'INSERT INTO usuarios (login, senha_hash, nome, telefone, email) VALUES ($1, $2, $3, $4, $5)',
+      [login, senhaHash, nome || null, telefone || null, email || null]
     );
 
     const tokenSolicitacao = crypto.randomBytes(24).toString('hex');
@@ -376,6 +428,78 @@ app.post('/api/register', limiteAuth, async (req, res) => {
     }
     console.error(err);
     res.status(500).json({ error: 'Erro ao cadastrar usuário' });
+  }
+});
+
+// Pede redefinição de senha: gera um token temporário e manda um e-mail com
+// o link. Sempre responde a MESMA mensagem, exista ou não esse login e tenha
+// ou não e-mail cadastrado — assim não dá pra descobrir quais contas existem
+// só tentando logins ao acaso.
+app.post('/api/esqueci-senha', limiteAuth, async (req, res) => {
+  const mensagemGenerica = { message: 'Se esse login existir e tiver um e-mail cadastrado, enviamos um link de redefinição.' };
+
+  try {
+    const { login } = req.body;
+    if (!login) {
+      return res.status(400).json({ error: 'Informe o login' });
+    }
+
+    const resultado = await pool.query('SELECT login, email FROM usuarios WHERE login = $1', [login]);
+    const usuario = resultado.rows[0];
+
+    if (usuario?.email) {
+      const token = crypto.randomBytes(24).toString('hex');
+      await pool.query(
+        'INSERT INTO redefinicoes_senha (usuario_login, token) VALUES ($1, $2)',
+        [usuario.login, token]
+      );
+      await enviarEmailRedefinicao({ email: usuario.email, login: usuario.login, token });
+    }
+
+    res.json(mensagemGenerica);
+  } catch (err) {
+    console.error(err);
+    // Mesmo em erro interno, não muda a mensagem pro usuário final — evita
+    // vazar detalhe nenhum sobre o motivo da falha.
+    res.json(mensagemGenerica);
+  }
+});
+
+const REDEFINICAO_EXPIRA_MS = 60 * 60 * 1000; // 1 hora
+
+// Consome o token do e-mail e troca a senha. Sem "autenticar" de propósito:
+// quem está redefinindo a senha, por definição, não consegue logar — a
+// segurança aqui vem do token aleatório, não de uma sessão já aberta.
+app.post('/api/redefinir-senha', limiteAuth, async (req, res) => {
+  try {
+    const { token, novaSenha } = req.body;
+    if (!token || !novaSenha) {
+      return res.status(400).json({ error: 'Token e nova senha são obrigatórios' });
+    }
+
+    const resultado = await pool.query(
+      'SELECT usuario_login, criado_em, usado FROM redefinicoes_senha WHERE token = $1',
+      [token]
+    );
+    const pedido = resultado.rows[0];
+
+    if (!pedido || pedido.usado) {
+      return res.status(400).json({ error: 'Link inválido ou já utilizado' });
+    }
+
+    const expirado = Date.now() - new Date(pedido.criado_em).getTime() > REDEFINICAO_EXPIRA_MS;
+    if (expirado) {
+      return res.status(400).json({ error: 'Link expirado. Peça uma nova redefinição.' });
+    }
+
+    const senhaHash = await bcrypt.hash(novaSenha, 10);
+    await pool.query('UPDATE usuarios SET senha_hash = $1 WHERE login = $2', [senhaHash, pedido.usuario_login]);
+    await pool.query('UPDATE redefinicoes_senha SET usado = true WHERE token = $1', [token]);
+
+    res.json({ message: 'Senha redefinida com sucesso' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao redefinir senha' });
   }
 });
 

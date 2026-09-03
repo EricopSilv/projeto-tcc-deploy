@@ -98,3 +98,16 @@
   color: #9ca3af;
   margin-top: 1rem;
 }
+
+.login-link {
+  display: block;
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: #10b981;
+  text-decoration: none;
+}
+
+.login-link:hover {
+  text-decoration: underline;
+}
