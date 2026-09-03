@@ -26,7 +26,7 @@ app.use(express.json({ limit: '40mb' }));
 // Limite geral pras rotas da API, pra dificultar abuso/DoS básico.
 const limiteGeral = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
 });

@@ -153,16 +153,27 @@ function usarModoArquivo() {
   modo.value = 'arquivo';
 }
 
+const CAPTURA_TIMEOUT_MS = 5 * 60 * 1000; // desiste depois de 5 minutos
+let capturaExpiraEm = null;
+
 async function usarCelular() {
   modo.value = 'celular';
   sessionId.value = gerarSessionId();
   qrCodeUrl.value = await QRCode.toDataURL(urlMobile.value);
+  capturaExpiraEm = Date.now() + CAPTURA_TIMEOUT_MS;
 
   intervaloPolling = setInterval(verificarCaptura, 2000);
 }
 
 async function verificarCaptura() {
   if (!sessionId.value) return;
+
+  if (Date.now() > capturaExpiraEm) {
+    pararPollingCelular();
+    alert('Tempo esgotado esperando as fotos do celular. Tente de novo.');
+    modo.value = 'arquivo';
+    return;
+  }
 
   try {
     const resultado = await consultarCaptura(sessionId.value);

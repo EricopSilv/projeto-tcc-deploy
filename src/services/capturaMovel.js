@@ -13,5 +13,8 @@ export async function enviarFotosCaptura(sessionId, images) {
 
 export async function consultarCaptura(sessionId) {
   const res = await fetch(`${API_BASE}/api/captura-movel/${sessionId}`);
+  if (!res.ok) {
+    return { pronto: false };
+  }
   return res.json();
 }
