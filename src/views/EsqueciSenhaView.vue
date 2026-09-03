@@ -5,11 +5,11 @@
 
       <template v-if="!enviado">
         <p class="login-message" style="margin-top: 0; margin-bottom: 1rem;">
-          Informe seu login. Se a conta tiver um e-mail cadastrado, mandamos um link de redefinição pra ele.
+          Informe o e-mail cadastrado na sua conta. Vamos verificar se ele existe e mandar o link de redefinição.
         </p>
 
         <div class="login-fields">
-          <input v-model="loginInput" placeholder="Login" class="login-input" />
+          <input v-model="emailInput" type="email" placeholder="E-mail" class="login-input" />
         </div>
 
         <button @click="enviar" :disabled="enviando" class="login-button login-button-primary">
@@ -18,7 +18,7 @@
       </template>
 
       <p v-else class="login-message" style="margin-top: 0;">
-        Se esse login existir e tiver e-mail cadastrado, o link de redefinição já foi enviado. Confira sua caixa de entrada (e o spam).
+        Link de redefinição enviado! Confira sua caixa de entrada (e o spam).
       </p>
 
       <RouterLink to="/login" class="login-link">Voltar para o login</RouterLink>
@@ -33,21 +33,21 @@ import '@/assets/pages/login.css';
 import { ref } from 'vue';
 import { esqueciSenha } from '@/services/auth';
 
-const loginInput = ref('');
+const emailInput = ref('');
 const enviando = ref(false);
 const enviado = ref(false);
 const mensagem = ref('');
 
 async function enviar() {
-  if (!loginInput.value) {
-    mensagem.value = 'Informe o login.';
+  if (!emailInput.value) {
+    mensagem.value = 'Informe o e-mail.';
     return;
   }
 
   mensagem.value = '';
   enviando.value = true;
   try {
-    await esqueciSenha(loginInput.value);
+    await esqueciSenha(emailInput.value);
     enviado.value = true;
   } catch (err) {
     mensagem.value = err.message;

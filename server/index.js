@@ -436,36 +436,32 @@ app.post('/api/register', limiteAuth, async (req, res) => {
 // ou não e-mail cadastrado — assim não dá pra descobrir quais contas existem
 // só tentando logins ao acaso.
 app.post('/api/esqueci-senha', limiteAuth, async (req, res) => {
-  const mensagemGenerica = { message: 'Se esse login existir e tiver um e-mail cadastrado, enviamos um link de redefinição.' };
-
   try {
-    const { login } = req.body;
-    if (!login) {
-      return res.status(400).json({ error: 'Informe o login' });
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Informe o e-mail' });
     }
 
-    const resultado = await pool.query('SELECT login, email FROM usuarios WHERE login = $1', [login]);
+    const resultado = await pool.query('SELECT login, email FROM usuarios WHERE email = $1', [email]);
     const usuario = resultado.rows[0];
 
-    if (usuario?.email) {
-      const token = crypto.randomBytes(24).toString('hex');
-      await pool.query(
-        'INSERT INTO redefinicoes_senha (usuario_login, token) VALUES ($1, $2)',
-        [usuario.login, token]
-      );
-      await enviarEmailRedefinicao({ email: usuario.email, login: usuario.login, token });
+    if (!usuario) {
+      return res.status(404).json({ error: 'Esse e-mail não está cadastrado' });
     }
 
-    res.json(mensagemGenerica);
+    const token = crypto.randomBytes(24).toString('hex');
+    await pool.query(
+      'INSERT INTO redefinicoes_senha (usuario_login, token) VALUES ($1, $2)',
+      [usuario.login, token]
+    );
+    await enviarEmailRedefinicao({ email: usuario.email, login: usuario.login, token });
+
+    res.json({ message: 'E-mail de redefinição enviado com sucesso' });
   } catch (err) {
     console.error(err);
-    // Mesmo em erro interno, não muda a mensagem pro usuário final — evita
-    // vazar detalhe nenhum sobre o motivo da falha.
-    res.json(mensagemGenerica);
+    res.status(500).json({ error: 'Erro ao pedir redefinição de senha' });
   }
 });
-
-const REDEFINICAO_EXPIRA_MS = 60 * 60 * 1000; // 1 hora
 
 // Consome o token do e-mail e troca a senha. Sem "autenticar" de propósito:
 // quem está redefinindo a senha, por definição, não consegue logar — a

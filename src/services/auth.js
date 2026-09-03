@@ -86,11 +86,11 @@ export async function excluirContaAdmin(login) {
   return data;
 }
 
-export async function esqueciSenha(login) {
+export async function esqueciSenha(email) {
   const res = await fetch(`${API_BASE}/api/esqueci-senha`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ login }),
+    body: JSON.stringify({ email }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Erro ao pedir redefinição de senha');
