@@ -135,6 +135,43 @@ async function enviarEmailRedefinicao({ email, login, token }) {
   }
 }
 
+// --- E-mail de aviso de modelo atribuído ---
+// Mesma limitação das outras: sem domínio verificado na Resend, só entrega
+// de verdade se o e-mail do cliente for o mesmo do ADMIN_EMAIL. Pra qualquer
+// outro e-mail de cliente, a chamada não dá erro, só não entrega nada.
+async function enviarEmailAtribuicao({ email, nomeModelo }) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('E-mail de atribuição não enviado: RESEND_API_KEY não configurada.');
+    return;
+  }
+
+  try {
+    const resposta = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: 'VisionFade <onboarding@resend.dev>',
+        to: [email],
+        subject: 'Novo modelo 3D disponível - VisionFade',
+        html: `
+          <p>Um novo modelo 3D foi disponibilizado pra você no VisionFade${nomeModelo ? `: <strong>${nomeModelo}</strong>` : ''}.</p>
+          <p>Acesse sua conta pra visualizar e baixar.</p>
+        `,
+      }),
+    });
+
+    if (!resposta.ok) {
+      const detalhes = await resposta.text();
+      console.error('Erro ao enviar e-mail de atribuição (Resend):', resposta.status, detalhes);
+    }
+  } catch (err) {
+    console.error('Erro ao enviar e-mail de atribuição:', err);
+  }
+}
+
 // --- Autenticação (JWT) ---
 // Gera um token com os dados do usuário, válido por 7 dias. Recebe um objeto
 // { login, nome, telefone, nivel_acesso } para que o front-end sempre tenha
@@ -463,6 +500,8 @@ app.post('/api/esqueci-senha', limiteAuth, async (req, res) => {
   }
 });
 
+const REDEFINICAO_EXPIRA_MS = 60 * 60 * 1000; // 1 hora
+
 // Consome o token do e-mail e troca a senha. Sem "autenticar" de propósito:
 // quem está redefinindo a senha, por definição, não consegue logar — a
 // segurança aqui vem do token aleatório, não de uma sessão já aberta.
@@ -589,7 +628,7 @@ app.put('/api/modelos/:id/atribuir-cliente', autenticar, exigirNivel('administra
   try {
     const { clienteLogin } = req.body; // login do cliente, ou null pra remover
 
-    const modelo = await pool.query('SELECT usuario_login FROM modelos_3d WHERE id = $1', [req.params.id]);
+    const modelo = await pool.query('SELECT usuario_login, descricao FROM modelos_3d WHERE id = $1', [req.params.id]);
     if (!modelo.rows[0]) {
       return res.status(404).json({ error: 'Modelo não encontrado' });
     }
@@ -597,17 +636,24 @@ app.put('/api/modelos/:id/atribuir-cliente', autenticar, exigirNivel('administra
       return res.status(403).json({ error: 'Você só pode atribuir modelos que você mesmo gerou' });
     }
 
+    let clienteEmail = null;
     if (clienteLogin) {
       const cliente = await pool.query(
-        "SELECT login FROM usuarios WHERE login = $1 AND nivel_acesso = 'cliente'",
+        "SELECT login, email FROM usuarios WHERE login = $1 AND nivel_acesso = 'cliente'",
         [clienteLogin]
       );
       if (!cliente.rows[0]) {
         return res.status(400).json({ error: 'Esse login não corresponde a uma conta cliente' });
       }
+      clienteEmail = cliente.rows[0].email;
     }
 
     await pool.query('UPDATE modelos_3d SET cliente_login = $1 WHERE id = $2', [clienteLogin || null, req.params.id]);
+
+    if (clienteLogin && clienteEmail) {
+      await enviarEmailAtribuicao({ email: clienteEmail, nomeModelo: modelo.rows[0].descricao });
+    }
+
     res.json({ message: 'Atribuição atualizada com sucesso' });
   } catch (err) {
     console.error(err);
