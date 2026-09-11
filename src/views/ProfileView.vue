@@ -38,9 +38,12 @@
           <p class="profile-modelos-tipo">{{ tipoFormatado(modelo.tipo) }}</p>
           <p v-if="modelo.descricao" class="profile-modelos-descricao">{{ modelo.descricao }}</p>
           <p class="profile-modelos-data">{{ dataFormatada(modelo.criado_em) }}</p>
-          <a :href="modelo.url_modelo" target="_blank" class="profile-modelos-download-link">
-            Baixar arquivo .glb
-          </a>
+          <div class="profile-modelos-downloads">
+            <a :href="modelo.url_modelo" target="_blank" class="profile-modelos-download-link">.glb</a>
+            <a v-if="modelo.formatos?.fbx" :href="modelo.formatos.fbx" target="_blank" class="profile-modelos-download-link">.fbx</a>
+            <a v-if="modelo.formatos?.obj" :href="modelo.formatos.obj" target="_blank" class="profile-modelos-download-link">.obj</a>
+            <a v-if="modelo.formatos?.usdz" :href="modelo.formatos.usdz" target="_blank" class="profile-modelos-download-link">.usdz</a>
+          </div>
 
           <div v-if="ehAdministrador" class="profile-modelos-atribuir">
             <label class="profile-modelos-atribuir-label">Atribuir a um cliente:</label>

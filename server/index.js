@@ -665,9 +665,9 @@ app.put('/api/modelos/:id/atribuir-cliente', autenticar, exigirNivel('administra
 // cliente vê o que foi ATRIBUÍDO a ele.
 app.get('/api/meus-modelos', autenticar, async (req, res) => {
   try {
-    const query = req.usuarioNivelAcesso === 'cliente'
-      ? 'SELECT id, tipo, descricao, url_modelo, criado_em, cliente_login FROM modelos_3d WHERE cliente_login = $1 ORDER BY criado_em DESC'
-      : 'SELECT id, tipo, descricao, url_modelo, criado_em, cliente_login FROM modelos_3d WHERE usuario_login = $1 ORDER BY criado_em DESC';
+        const query = req.usuarioNivelAcesso === 'cliente'
+      ? 'SELECT id, tipo, descricao, url_modelo, formatos, criado_em, cliente_login FROM modelos_3d WHERE cliente_login = $1 ORDER BY criado_em DESC'
+      : 'SELECT id, tipo, descricao, url_modelo, formatos, criado_em, cliente_login FROM modelos_3d WHERE usuario_login = $1 ORDER BY criado_em DESC';
 
     const resultado = await pool.query(query, [req.usuarioLogin]);
     res.json({ modelos: resultado.rows });
@@ -725,19 +725,17 @@ const promptPorTask = new Map();
 // meshy_task_id porque o front-end fica consultando o status repetidamente
 // até dar "sucesso" — sem isso, cada consulta depois do sucesso duplicaria a
 // linha no banco.
-async function salvarModeloGerado({ usuarioLogin, tipo, descricao, urlModelo, meshyTaskId }) {
+async function salvarModeloGerado({ usuarioLogin, tipo, descricao, urlModelo, formatos, meshyTaskId }) {
   if (!urlModelo) return;
 
   try {
     await pool.query(
-      `INSERT INTO modelos_3d (usuario_login, tipo, descricao, url_modelo, meshy_task_id)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO modelos_3d (usuario_login, tipo, descricao, url_modelo, formatos, meshy_task_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (meshy_task_id) DO NOTHING`,
-      [usuarioLogin, tipo, descricao || null, urlModelo, meshyTaskId]
+      [usuarioLogin, tipo, descricao || null, urlModelo, formatos ? JSON.stringify(formatos) : null, meshyTaskId]
     );
   } catch (err) {
-    // Um erro aqui não deve derrubar a resposta pro front-end — a pessoa já
-    // recebeu o modelo gerado, só não conseguimos registrar no histórico.
     console.error('Erro ao salvar modelo gerado no banco:', err);
   }
 }
@@ -830,6 +828,7 @@ app.get('/api/task/:id', autenticar, async (req, res) => {
         tipo: 'texto',
         descricao: promptPorTask.get(clientId),
         urlModelo,
+        formatos: data.model_urls,
         meshyTaskId: actualId,
       });
     }
@@ -932,6 +931,7 @@ app.get('/api/task-image/:id', autenticar, async (req, res) => {
         tipo: 'imagem',
         descricao: 'Gerado a partir de uma imagem',
         urlModelo,
+        formatos: data.model_urls,
         meshyTaskId: req.params.id,
       });
     }
@@ -1010,6 +1010,7 @@ app.get('/api/task-multi-image/:id', autenticar, async (req, res) => {
         tipo: 'multi_imagem',
         descricao: 'Gerado a partir de múltiplas imagens',
         urlModelo,
+        formatos: data.model_urls,
         meshyTaskId: req.params.id,
       });
     }
