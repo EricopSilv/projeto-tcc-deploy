@@ -666,8 +666,8 @@ app.put('/api/modelos/:id/atribuir-cliente', autenticar, exigirNivel('administra
 app.get('/api/meus-modelos', autenticar, async (req, res) => {
   try {
         const query = req.usuarioNivelAcesso === 'cliente'
-      ? 'SELECT id, tipo, descricao, url_modelo, formatos, criado_em, cliente_login FROM modelos_3d WHERE cliente_login = $1 ORDER BY criado_em DESC'
-      : 'SELECT id, tipo, descricao, url_modelo, formatos, criado_em, cliente_login FROM modelos_3d WHERE usuario_login = $1 ORDER BY criado_em DESC';
+      ? 'SELECT id, tipo, descricao, url_modelo, formatos, thumbnail_url, criado_em, cliente_login FROM modelos_3d WHERE cliente_login = $1 ORDER BY criado_em DESC'
+      : 'SELECT id, tipo, descricao, url_modelo, formatos, thumbnail_url, criado_em, cliente_login FROM modelos_3d WHERE usuario_login = $1 ORDER BY criado_em DESC';
 
     const resultado = await pool.query(query, [req.usuarioLogin]);
     res.json({ modelos: resultado.rows });
@@ -725,15 +725,15 @@ const promptPorTask = new Map();
 // meshy_task_id porque o front-end fica consultando o status repetidamente
 // até dar "sucesso" — sem isso, cada consulta depois do sucesso duplicaria a
 // linha no banco.
-async function salvarModeloGerado({ usuarioLogin, tipo, descricao, urlModelo, formatos, meshyTaskId }) {
+async function salvarModeloGerado({ usuarioLogin, tipo, descricao, urlModelo, formatos, thumbnailUrl, meshyTaskId }) {
   if (!urlModelo) return;
 
   try {
     await pool.query(
-      `INSERT INTO modelos_3d (usuario_login, tipo, descricao, url_modelo, formatos, meshy_task_id)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO modelos_3d (usuario_login, tipo, descricao, url_modelo, formatos, thumbnail_url, meshy_task_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (meshy_task_id) DO NOTHING`,
-      [usuarioLogin, tipo, descricao || null, urlModelo, formatos ? JSON.stringify(formatos) : null, meshyTaskId]
+      [usuarioLogin, tipo, descricao || null, urlModelo, formatos ? JSON.stringify(formatos) : null, thumbnailUrl || null, meshyTaskId]
     );
   } catch (err) {
     console.error('Erro ao salvar modelo gerado no banco:', err);
@@ -829,6 +829,7 @@ app.get('/api/task/:id', autenticar, async (req, res) => {
         descricao: promptPorTask.get(clientId),
         urlModelo,
         formatos: data.model_urls,
+        thumbnailUrl: data.thumbnail_url,
         meshyTaskId: actualId,
       });
     }
@@ -932,6 +933,7 @@ app.get('/api/task-image/:id', autenticar, async (req, res) => {
         descricao: 'Gerado a partir de uma imagem',
         urlModelo,
         formatos: data.model_urls,
+        thumbnailUrl: data.thumbnail_url,
         meshyTaskId: req.params.id,
       });
     }
@@ -1011,6 +1013,7 @@ app.get('/api/task-multi-image/:id', autenticar, async (req, res) => {
         descricao: 'Gerado a partir de múltiplas imagens',
         urlModelo,
         formatos: data.model_urls,
+        thumbnailUrl: data.thumbnail_url,
         meshyTaskId: req.params.id,
       });
     }

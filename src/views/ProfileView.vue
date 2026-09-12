@@ -34,7 +34,19 @@
 
       <div v-else class="profile-modelos-grid">
         <div v-for="modelo in modelos" :key="modelo.id" class="profile-modelos-card">
-          <ModelViewer :src="proxiedUrl(modelo.url_modelo)" />
+          <div v-if="!modeloAberto[modelo.id]" class="profile-modelos-thumb-wrap">
+            <img
+              v-if="modelo.thumbnail_url"
+              :src="modelo.thumbnail_url"
+              :alt="modelo.descricao || 'Modelo 3D'"
+              class="profile-modelos-thumb"
+            />
+            <div v-else class="profile-modelos-thumb-placeholder">Sem prévia</div>
+            <button @click="modeloAberto[modelo.id] = true" class="btn-secondary profile-modelos-ver-btn">
+              Ver em 3D
+            </button>
+          </div>
+          <ModelViewer v-else :src="proxiedUrl(modelo.url_modelo)" />
           <p class="profile-modelos-tipo">{{ tipoFormatado(modelo.tipo) }}</p>
           <p v-if="modelo.descricao" class="profile-modelos-descricao">{{ modelo.descricao }}</p>
           <p class="profile-modelos-data">{{ dataFormatada(modelo.criado_em) }}</p>
@@ -113,6 +125,7 @@ const clientes = ref([]);
 // mensagem de sucesso/erro depois de salvar aquela atribuição específica.
 const atribuicoes = reactive({});
 const mensagemAtribuicao = reactive({});
+const modeloAberto = reactive({});
 
 const LABELS_TIPO = {
   texto: 'Texto para 3D',
