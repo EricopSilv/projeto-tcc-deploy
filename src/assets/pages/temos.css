@@ -1,0 +1,51 @@
+.termos-page {
+  padding: 2rem 1rem;
+}
+
+.termos-card {
+  max-width: 40rem;
+  margin: 0 auto;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  padding: 2rem;
+}
+
+.termos-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.termos-atualizado {
+  color: var(--color-border);
+  font-size: 0.8rem;
+  margin-bottom: 1.5rem;
+}
+
+.termos-secao {
+  margin-bottom: 1.5rem;
+}
+
+.termos-secao h2 {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.termos-secao p,
+.termos-secao li {
+  color: var(--color-border);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.termos-secao ul {
+  padding-left: 1.25rem;
+  margin: 0.5rem 0;
+}
+
+.termos-voltar {
+  display: inline-block;
+  margin-top: 1rem;
+  color: var(--color-accent-hover);
+}

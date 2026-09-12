@@ -66,6 +66,11 @@ const router = createRouter({
       component: () => import('../views/RedefinirSenhaView.vue'),
     },
     {
+      path: '/termos',
+      name: 'termos',
+      component: () => import('../views/TermosView.vue'),
+    },
+    {
       path: '/perfil',
       name: 'perfil',
       component: () => import('../views/ProfileView.vue'),

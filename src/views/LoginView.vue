@@ -17,6 +17,12 @@
         </template>
       </div>
 
+      <label v-if="modoCadastro" class="login-checkbox-label">
+        <input type="checkbox" v-model="aceitouTermos" />
+        Li e aceito os
+        <RouterLink to="/termos" target="_blank">Termos de Uso e a Política de Privacidade</RouterLink>
+      </label>
+
       <button @click="enviar" class="login-button login-button-primary">
         {{ modoCadastro ? 'Cadastrar' : 'Entrar' }}
       </button>
@@ -48,11 +54,16 @@ const email = ref('');
 const tipoConta = ref('administrador');
 const modoCadastro = ref(false);
 const mensagem = ref('');
+const aceitouTermos = ref(false);
 
 async function enviar() {
   mensagem.value = '';
   try {
     if (modoCadastro.value) {
+      if (!aceitouTermos.value) {
+        mensagem.value = 'Você precisa aceitar os Termos de Uso pra criar uma conta.';
+        return;
+      }
       await register(loginInput.value, senha.value, nome.value, telefone.value, tipoConta.value, email.value);
       mensagem.value = 'Cadastro realizado! Agora você pode fazer login.';
       modoCadastro.value = false;
@@ -60,6 +71,7 @@ async function enviar() {
       telefone.value = '';
       email.value = '';
       tipoConta.value = 'administrador';
+      aceitouTermos.value = false;
     } else {
       const data = await loginApi(loginInput.value, senha.value);
       definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso, data.foto, data.email);
