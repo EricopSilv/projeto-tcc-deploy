@@ -13,7 +13,7 @@
   bottom: 1rem;
   z-index: 20;
 
-  width: 13rem;
+  width: 16rem;
 
   display: flex;
   flex-direction: column;
@@ -60,9 +60,15 @@
   display: flex;
   align-items: center;
   padding: 0.55rem 1rem;
-  border-radius: var(--radius-pill);
+  /* Arredondado, mas não em pílula: o link do Perfil mostra o e-mail do
+     usuário e quebra em duas linhas, e o raio de pílula (999px) transforma
+     as pontas em semicírculos que comem o texto. */
+  border-radius: 1.25rem;
   font-size: 0.875rem;
   font-weight: 500;
+  line-height: 1.35;
+  /* E-mails longos quebram dentro do link em vez de vazar pra fora dele. */
+  overflow-wrap: anywhere;
   color: var(--color-text);
   background: linear-gradient(90deg, rgba(140, 176, 202, 0.18), rgba(69, 87, 100, 0.18));
   box-shadow: inset 0 0 0 1px transparent;
@@ -84,7 +90,7 @@
 /* ---------- Área de conteúdo das páginas ---------- */
 
 .app-content {
-  margin-left: 14rem;
+  margin-left: 17rem;
 }
 
 /* ---------- Versão mobile: a sidebar vira uma barra no topo + dropdown ---------- */
