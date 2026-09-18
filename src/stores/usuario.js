@@ -7,6 +7,9 @@ const telefoneSalvo = localStorage.getItem('usuarioTelefone');
 const nivelAcessoSalvo = localStorage.getItem('usuarioNivelAcesso');
 const fotoSalva = localStorage.getItem('usuarioFoto');
 const emailSalvo = localStorage.getItem('usuarioEmail');
+// Guardado como '1'/'0' porque o localStorage só grava texto: o booleano
+// false viraria a string "false", que é verdadeira em JavaScript.
+const notificarEmailSalvo = localStorage.getItem('usuarioNotificarEmail');
 
 export const estadoUsuario = reactive({
   login: usuarioSalvo || null,
@@ -22,9 +25,12 @@ export const estadoUsuario = reactive({
   // grandes. Por isso ela viaja separada, só nas respostas de login/edição.
   foto: fotoSalva || null,
   email: emailSalvo || null,
+  // Só é falso se a pessoa desligou de propósito; qualquer outro caso
+  // (conta nova, nada salvo ainda) assume que ela quer receber o aviso.
+  notificarEmail: notificarEmailSalvo !== '0',
 });
 
-export function definirUsuarioLogado(login, token, nome, telefone, nivelAcesso, foto, email) {
+export function definirUsuarioLogado(login, token, nome, telefone, nivelAcesso, foto, email, notificarEmail) {
   estadoUsuario.login = login;
   estadoUsuario.token = token || null;
   estadoUsuario.nome = nome || null;
@@ -32,8 +38,10 @@ export function definirUsuarioLogado(login, token, nome, telefone, nivelAcesso, 
   estadoUsuario.nivelAcesso = nivelAcesso || null;
   estadoUsuario.foto = foto || null;
   estadoUsuario.email = email || null;
+  estadoUsuario.notificarEmail = notificarEmail !== false;
 
   localStorage.setItem('usuarioLogado', login);
+  localStorage.setItem('usuarioNotificarEmail', estadoUsuario.notificarEmail ? '1' : '0');
   if (token) {
     localStorage.setItem('tokenAcesso', token);
   } else {
@@ -79,6 +87,7 @@ export function limparUsuarioLogado() {
   estadoUsuario.nivelAcesso = null;
   estadoUsuario.foto = null;
   estadoUsuario.email = null;
+  estadoUsuario.notificarEmail = true;
   localStorage.removeItem('usuarioLogado');
   localStorage.removeItem('tokenAcesso');
   localStorage.removeItem('usuarioNome');
@@ -86,4 +95,5 @@ export function limparUsuarioLogado() {
   localStorage.removeItem('usuarioNivelAcesso');
   localStorage.removeItem('usuarioFoto');
   localStorage.removeItem('usuarioEmail');
+  localStorage.removeItem('usuarioNotificarEmail');
 }

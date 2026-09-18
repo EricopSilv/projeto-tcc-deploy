@@ -17,7 +17,6 @@
       </p>
 
       <div class="profile-actions">
-        <button @click="irParaEdicao" class="btn-primary">Alterar dados</button>
         <button v-if="ehSuperAdmin" @click="irParaUsuarios" class="btn-secondary">Gerenciar usuários</button>
         <button @click="sair" class="btn-secondary">Sair</button>
       </div>
@@ -103,10 +102,6 @@ const ehSuperAdmin = computed(() => estadoUsuario.login === LOGIN_SUPER_ADMIN);
 const tituloModelos = computed(() =>
   ehCliente.value ? 'Modelos disponíveis para você' : 'Meus Modelos'
 );
-
-function irParaEdicao() {
-  router.push('/perfil/editar');
-}
 
 function irParaUsuarios() {
   router.push('/perfil/usuarios');

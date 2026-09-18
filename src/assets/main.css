@@ -200,7 +200,18 @@ a:focus-visible {
   outline-offset: 3px;
 }
 
-/* Respeita quem configurou "reduzir movimento" no sistema operacional. */
+/* Modo "reduzir animações", ligado pela tela de Configurações. Vale pra quem
+   quer desligar os efeitos sem mexer na configuração do sistema operacional. */
+html[data-reduce-motion="true"] *,
+html[data-reduce-motion="true"] *::before,
+html[data-reduce-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Respeita quem já configurou "reduzir movimento" no sistema operacional. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

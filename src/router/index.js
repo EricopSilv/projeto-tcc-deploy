@@ -8,7 +8,7 @@ import { estadoUsuario } from '../stores/usuario'
 // logar ao tentar gerar algo.
 const ROTAS_PROTEGIDAS = [
   'perfil',
-  'editar-perfil',
+  'configuracoes',
   'usuarios',
   'gerar-3d',
   'gerar-3d-texto',
@@ -76,9 +76,15 @@ const router = createRouter({
       component: () => import('../views/ProfileView.vue'),
     },
     {
+      path: '/configuracoes',
+      name: 'configuracoes',
+      component: () => import('../views/ConfiguracoesView.vue'),
+    },
+    // A tela de "Alterar dados" virou uma seção dentro de Configurações.
+    // O redirecionamento evita que links/favoritos antigos quebrem.
+    {
       path: '/perfil/editar',
-      name: 'editar-perfil',
-      component: () => import('../views/EditProfileView.vue'),
+      redirect: '/configuracoes',
     },
     {
       path: '/perfil/usuarios',

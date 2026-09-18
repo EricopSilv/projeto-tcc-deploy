@@ -240,7 +240,7 @@ app.post('/api/login', limiteAuth, async (req, res) => {
     }
 
     const result = await pool.query(
-      'SELECT login, senha_hash, nome, telefone, nivel_acesso, foto_perfil, email FROM usuarios WHERE login = $1',
+      'SELECT login, senha_hash, nome, telefone, nivel_acesso, foto_perfil, email, notificar_email FROM usuarios WHERE login = $1',
       [login]
     );
     const usuario = result.rows[0];
@@ -264,6 +264,7 @@ app.post('/api/login', limiteAuth, async (req, res) => {
       nivelAcesso: usuario.nivel_acesso,
       foto: usuario.foto_perfil,
       email: usuario.email,
+      notificarEmail: usuario.notificar_email,
       token,
     });
   } catch (err) {
@@ -332,11 +333,12 @@ app.put('/api/usuarios/:login', autenticar, async (req, res) => {
       return res.status(403).json({ error: 'Você só pode alterar a própria conta' });
     }
 
-    const { novoLogin, novaSenha, novoNome, novoTelefone, novoEmail, novaFoto } = req.body;
+    const { novoLogin, novaSenha, novoNome, novoTelefone, novoEmail, novaFoto, notificarEmail } = req.body;
 
     if (
       !novoLogin && !novaSenha && novoNome === undefined &&
-      novoTelefone === undefined && novoEmail === undefined && novaFoto === undefined
+      novoTelefone === undefined && novoEmail === undefined && novaFoto === undefined &&
+      notificarEmail === undefined
     ) {
       return res.status(400).json({ error: 'Informe ao menos um campo para atualizar' });
     }
@@ -373,10 +375,17 @@ app.put('/api/usuarios/:login', autenticar, async (req, res) => {
       campos.push(`foto_perfil = $${indice++}`);
       valores.push(novaFoto || null);
     }
+    // Aqui não dá pra usar "|| null" como nos campos de texto: false é um
+    // valor legítimo, e "|| null" o transformaria em null (ou seja, desligar
+    // o aviso nunca salvaria). Por isso o Boolean() explícito.
+    if (notificarEmail !== undefined) {
+      campos.push(`notificar_email = $${indice++}`);
+      valores.push(Boolean(notificarEmail));
+    }
 
     valores.push(loginAtual);
     const resultado = await pool.query(
-      `UPDATE usuarios SET ${campos.join(', ')} WHERE login = $${indice} RETURNING login, nome, telefone, nivel_acesso, foto_perfil, email`,
+      `UPDATE usuarios SET ${campos.join(', ')} WHERE login = $${indice} RETURNING login, nome, telefone, nivel_acesso, foto_perfil, email, notificar_email`,
       valores
     );
 
@@ -393,6 +402,7 @@ app.put('/api/usuarios/:login', autenticar, async (req, res) => {
       nivelAcesso: usuarioAtualizado.nivel_acesso,
       foto: usuarioAtualizado.foto_perfil,
       email: usuarioAtualizado.email,
+      notificarEmail: usuarioAtualizado.notificar_email,
       token,
     });
   } catch (err) {
@@ -634,20 +644,24 @@ app.put('/api/modelos/:id/atribuir-cliente', autenticar, exigirNivel('administra
     }
 
     let clienteEmail = null;
+    let clienteQuerAviso = true;
     if (clienteLogin) {
       const cliente = await pool.query(
-        "SELECT login, email FROM usuarios WHERE login = $1 AND nivel_acesso = 'cliente'",
+        "SELECT login, email, notificar_email FROM usuarios WHERE login = $1 AND nivel_acesso = 'cliente'",
         [clienteLogin]
       );
       if (!cliente.rows[0]) {
         return res.status(400).json({ error: 'Esse login não corresponde a uma conta cliente' });
       }
       clienteEmail = cliente.rows[0].email;
+      // Contas antigas podem ter esse campo nulo (antes da coluna existir),
+      // e nesse caso o padrão é avisar — só não envia quem desligou de fato.
+      clienteQuerAviso = cliente.rows[0].notificar_email !== false;
     }
 
     await pool.query('UPDATE modelos_3d SET cliente_login = $1 WHERE id = $2', [clienteLogin || null, req.params.id]);
 
-    if (clienteLogin && clienteEmail) {
+    if (clienteLogin && clienteEmail && clienteQuerAviso) {
       await enviarEmailAtribuicao({ email: clienteEmail, nomeModelo: modelo.rows[0].descricao });
     }
 

@@ -74,7 +74,7 @@ async function enviar() {
       aceitouTermos.value = false;
     } else {
       const data = await loginApi(loginInput.value, senha.value);
-      definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso, data.foto, data.email);
+      definirUsuarioLogado(data.login, data.token, data.nome, data.telefone, data.nivelAcesso, data.foto, data.email, data.notificarEmail);
       router.push('/perfil');
     }
   } catch (err) {
