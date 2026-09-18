@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { GoogleGenAI } from '@google/genai';
 import 'dotenv/config';
 import bcrypt from 'bcrypt';
 import { pool } from './db.js';
@@ -40,8 +39,6 @@ const limiteAuth = rateLimit({
   legacyHeaders: false,
   message: { error: 'Muitas tentativas. Tente novamente em alguns minutos.' },
 });
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // --- E-mail de aprovação de acesso ---
 // Usa a API da Resend (por HTTPS) em vez de SMTP direto (Gmail): hospedagens
@@ -674,35 +671,6 @@ app.get('/api/meus-modelos', autenticar, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao listar modelos' });
-  }
-});
-
-// Chat com a IA (Gemini). Recebe o histórico inteiro a cada chamada
-// (o front-end reenvia tudo, então aqui é uma chamada única e sem estado).
-// Exige login: cada chamada consome cota da sua conta do Gemini, então não
-// pode ficar aberta pra qualquer visitante do site.
-app.post('/api/chat', autenticar, async (req, res) => {
-  try {
-    const { messages } = req.body;
-
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return res.status(400).json({ error: 'Envie ao menos uma mensagem' });
-    }
-
-    const contents = messages.map((m) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents,
-    });
-
-    res.json({ reply: response.text });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao consultar a IA' });
   }
 });
 
