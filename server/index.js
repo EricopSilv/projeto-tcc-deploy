@@ -40,6 +40,23 @@ const limiteAuth = rateLimit({
   message: { error: 'Muitas tentativas. Tente novamente em alguns minutos.' },
 });
 
+// Rota proposital mente mínima: serve só pra "acordar" o servidor.
+//
+// O plano gratuito do Render hiberna a instância após 15 minutos sem tráfego,
+// e a primeira requisição depois disso espera o servidor subir — o que pode
+// levar 50 segundos ou mais. Se essa primeira requisição for justamente a de
+// gerar um modelo, a pessoa acha que a geração é lenta, quando na verdade o
+// tempo foi gasto ligando o servidor.
+//
+// O front-end chama esta rota assim que o site abre (ver src/main.js). Assim
+// a instância já vai subindo enquanto a pessoa navega e escolhe a imagem, e
+// quando ela clicar em gerar o servidor está de pé.
+//
+// Não consulta o banco de propósito: quanto mais leve, mais rápido responde.
+app.get('/api/ping', (req, res) => {
+  res.json({ ok: true });
+});
+
 // --- E-mail de aprovação de acesso ---
 // Usa a API da Resend (por HTTPS) em vez de SMTP direto (Gmail): hospedagens
 // como o Render bloqueiam conexões de saída pelas portas usadas por SMTP —
@@ -884,7 +901,15 @@ app.post('/api/generate-3d-image', autenticar, exigirNivel('administrador'), asy
       },
       body: JSON.stringify({
         image_url: image_base64, // aceita data URI base64 ou uma URL direto
-        enable_pbr: true,
+        // Escolhas feitas pensando em TEMPO de geração:
+        // - "meshy-6-lite" é o modelo leve. O padrão da API é "latest", que
+        //   hoje aponta pro Meshy 7.1 — o de maior detalhamento e, por isso,
+        //   o mais demorado. Num visualizador web a diferença é discreta.
+        // - enable_pbr desligado: ele geraria 3 mapas de textura extras
+        //   (metallic, roughness, normal), o que custa tempo. O padrão da
+        //   própria API é false; estava ligado aqui sem necessidade real.
+        ai_model: 'meshy-6-lite',
+        enable_pbr: false,
         should_texture: true,
       }),
     });
@@ -958,9 +983,12 @@ app.post('/api/generate-3d-multi-image', autenticar, exigirNivel('administrador'
         // a ordem das demais não importa, mas é bom manter uma convenção
         // no front-end (frente, lado, costas) pra facilitar o uso.
         image_urls: images,
-        ai_model: 'latest',
+        // Mesmo raciocínio da rota de imagem única: modelo leve e sem os
+        // mapas PBR extras, pra reduzir o tempo de geração. Antes estava
+        // "latest" (hoje = Meshy 7.1, o mais pesado) com enable_pbr ligado.
+        ai_model: 'meshy-6-lite',
         should_texture: true,
-        enable_pbr: true,
+        enable_pbr: false,
       }),
     });
 
