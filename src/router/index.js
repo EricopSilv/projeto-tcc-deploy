@@ -14,6 +14,7 @@ const ROTAS_PROTEGIDAS = [
   'gerar-3d-texto',
   'gerar-3d-imagem',
   'gerar-3d-multi-imagem',
+  'mudar-visual',
 ]
 
 // Só essa conta específica pode acessar a tela de gerenciar usuários — nem
@@ -49,6 +50,11 @@ const router = createRouter({
       path: '/gerar-3d/multi-imagem',
       name: 'gerar-3d-multi-imagem',
       component: () => import('../views/MultiImagemParaModeloView.vue'),
+    },
+    {
+      path: '/gerar-3d/visual',
+      name: 'mudar-visual',
+      component: () => import('../views/MudarVisualView.vue'),
     },
     {
       path: '/login',

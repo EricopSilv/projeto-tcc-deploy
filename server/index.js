@@ -1057,6 +1057,70 @@ app.post('/api/generate-image', autenticar, async (req, res) => {
   }
 });
 
+// --- Mudar o visual de uma foto ---
+//
+// Usa a API "image-to-image" da Meshy: recebe a foto do cliente e uma
+// descrição do visual desejado ("degradê baixo, sem mexer no topo") e devolve
+// a foto editada. Essa foto editada é que vira o modelo 3D depois, pela rota
+// de imagem que já existia.
+//
+// A etapa é separada de propósito: editar a foto custa bem menos que gerar o
+// modelo 3D, então a pessoa vê a prévia e decide se vale seguir. Sem isso,
+// cada tentativa de texto queimaria os créditos da geração 3D junto.
+app.post('/api/editar-visual', autenticar, exigirNivel('administrador'), async (req, res) => {
+  try {
+    const { image_base64, prompt } = req.body;
+
+    if (!image_base64) return res.status(400).json({ error: 'Envie uma foto' });
+    if (!prompt?.trim()) return res.status(400).json({ error: 'Descreva o visual desejado' });
+
+    const response = await fetch('https://api.meshy.ai/openapi/v1/image-to-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.MESHY_API_KEY}`,
+      },
+      body: JSON.stringify({
+        // Mesmo modelo de imagem já usado na geração por texto.
+        ai_model: 'nano-banana-pro',
+        prompt,
+        reference_image_urls: [image_base64],
+        aspect_ratio: '1:1',
+      }),
+    });
+
+    const data = await response.json();
+    console.log('Resposta da Meshy (image-to-image):', JSON.stringify(data, null, 2));
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data.message || 'Falha ao editar a imagem' });
+    }
+
+    res.json({ task_id: data.result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao criar tarefa de edição de visual' });
+  }
+});
+
+app.get('/api/task-editar-visual/:id', autenticar, async (req, res) => {
+  try {
+    const response = await fetch(`https://api.meshy.ai/openapi/v1/image-to-image/${req.params.id}`, {
+      headers: { Authorization: `Bearer ${process.env.MESHY_API_KEY}` },
+    });
+    const data = await response.json();
+
+    res.json({
+      status: normalizeStatus(data.status),
+      progress: data.progress,
+      output: { image_url: data.image_urls?.[0] || null },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao consultar tarefa de edição de visual' });
+  }
+});
+
 app.get('/api/task-text-image/:id', autenticar, async (req, res) => {
   try {
     const response = await fetch(`https://api.meshy.ai/openapi/v1/text-to-image/${req.params.id}`, {
@@ -1077,7 +1141,10 @@ app.get('/api/task-text-image/:id', autenticar, async (req, res) => {
 
 app.post('/api/generate-3d-image', autenticar, exigirNivel('administrador'), async (req, res) => {
   try {
-    const { image_base64 } = req.body;
+    // "descricao" é opcional e só é enviada pela tela de mudar o visual, que
+    // manda o texto do visual pedido. As telas antigas não mandam nada, então
+    // continuam caindo no texto padrão — o comportamento delas não muda.
+    const { image_base64, descricao } = req.body;
     console.log('Prefixo recebido:', image_base64?.substring(0, 50));
 
     const response = await fetch('https://api.meshy.ai/openapi/v1/image-to-3d', {
@@ -1129,7 +1196,7 @@ app.post('/api/generate-3d-image', autenticar, exigirNivel('administrador'), asy
     await registrarTarefaPendente({
       usuarioLogin: req.usuarioLogin,
       tipo: 'imagem',
-      descricao: 'Gerado a partir de uma imagem',
+      descricao: descricao?.trim() || 'Gerado a partir de uma imagem',
       meshyTaskId: data.result,
     });
 

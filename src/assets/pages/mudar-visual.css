@@ -1,0 +1,49 @@
+/* Estilos da página "Mudar o visual" — CSS puro, sem Tailwind.
+   Segue o mesmo formato das outras páginas de geração. */
+
+.mudar-visual-page {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1rem;
+}
+
+.mudar-visual-wrap {
+  width: 100%;
+  max-width: 42rem;
+}
+
+.mudar-visual-back {
+  display: inline-block;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1.5rem;
+  transition: color 0.2s;
+}
+
+.mudar-visual-back:hover {
+  color: var(--color-accent-hover);
+}
+
+.mudar-visual-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-panel);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+  padding: 1.75rem;
+}
+
+.mudar-visual-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text-strong);
+  text-align: center;
+  margin-bottom: 0.25rem;
+}
+
+.mudar-visual-subtitle {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  margin-bottom: 1.75rem;
+}

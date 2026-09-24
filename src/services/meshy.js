@@ -23,11 +23,13 @@ export async function checkTask(taskId) {
   return res.json();
 }
 
-export async function generate3DFromImage(imageBase64) {
+// "descricao" é opcional: só a tela de mudar o visual manda, pra que o modelo
+// fique identificado pelo visual pedido em vez do texto genérico.
+export async function generate3DFromImage(imageBase64, descricao) {
   const res = await fetch(`${API_BASE}/api/generate-3d-image`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...cabecalhosAuth() },
-    body: JSON.stringify({ image_base64: imageBase64 }),
+    body: JSON.stringify({ image_base64: imageBase64, descricao }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Falha ao criar tarefa de geração 3D a partir de imagem');
@@ -70,6 +72,25 @@ export async function generateImage(prompt) {
 
 export async function checkTextImageTask(taskId) {
   const res = await fetch(`${API_BASE}/api/task-text-image/${taskId}`, { headers: cabecalhosAuth() });
+  return res.json();
+}
+
+// --- Mudar o visual de uma foto ---
+// Duas etapas: primeiro a foto é editada conforme a descrição (barato), e só
+// depois, se a pessoa aprovar a prévia, é que o modelo 3D é gerado (caro).
+export async function editarVisual(imageBase64, prompt) {
+  const res = await fetch(`${API_BASE}/api/editar-visual`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...cabecalhosAuth() },
+    body: JSON.stringify({ image_base64: imageBase64, prompt }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Falha ao editar o visual da imagem');
+  return data.task_id;
+}
+
+export async function checkEditarVisualTask(taskId) {
+  const res = await fetch(`${API_BASE}/api/task-editar-visual/${taskId}`, { headers: cabecalhosAuth() });
   return res.json();
 }
 

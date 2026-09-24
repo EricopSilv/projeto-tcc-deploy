@@ -1,0 +1,93 @@
+/* Estilos da tela "Mudar o visual" — CSS puro, sem Tailwind.
+   As cores vêm das variáveis de src/assets/main.css. */
+
+.visual-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.visual-etapa {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.visual-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.visual-file {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.visual-file::file-selector-button {
+  margin-right: 0.75rem;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius-control);
+  padding: 0.5rem 1rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  background: linear-gradient(90deg, rgba(140, 176, 202, 0.32), rgba(69, 87, 100, 0.32));
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+.visual-textarea {
+  resize: vertical;
+  min-height: 4.5rem;
+  line-height: 1.5;
+  border-radius: 1rem;
+}
+
+.visual-dica {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.visual-botao {
+  align-self: flex-start;
+  margin-top: 0.35rem;
+}
+
+.visual-previa {
+  width: 100%;
+  border-radius: 1rem;
+  box-shadow: inset 0 0 0 1px var(--color-border);
+  display: block;
+}
+
+/* Antes e depois lado a lado — é a comparação que importa nessa tela. */
+.visual-comparacao {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.visual-figura {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.visual-legenda {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.visual-erro {
+  font-size: 0.85rem;
+  color: var(--color-danger);
+}
+
+@media (max-width: 640px) {
+  .visual-comparacao {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -14,6 +14,10 @@
     <RouterLink :to="{ name: 'gerar-3d-multi-imagem' }" class="btn-primary gerar3d-menu-link">
       Criar modelo 3D a partir de várias imagens
     </RouterLink>
+
+    <RouterLink :to="{ name: 'mudar-visual' }" class="btn-primary gerar3d-menu-link">
+      Mudar o visual de uma foto e gerar o modelo 3D
+    </RouterLink>
   </div>
 </template>
 
