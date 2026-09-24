@@ -1013,6 +1013,16 @@ app.post('/api/generate-3d-image', autenticar, exigirNivel('administrador'), asy
         // O antigo "ultra_mode: true" da Meshy virou apelido justamente
         // deste valor.
         geometry_resolution: '2k',
+        // O remesh é o que impede o arquivo de sair gigante. No Meshy 7 ele
+        // vem DESLIGADO por padrão, e sem ele a Meshy entrega a malha bruta da
+        // geração: o primeiro modelo gerado com geometry_resolution 2k saiu com
+        // 49 MB, o que estouraria o limite de 0,5 GB do Neon em ~9 modelos.
+        //
+        // A prática normal é justamente esta: gerar denso (o passe 2k captura
+        // bem a forma), reduzir os polígonos, e deixar o detalhe fino por conta
+        // dos mapas de normal — que vêm do enable_pbr, já ligado aqui.
+        should_remesh: true,
+        target_polycount: 50000,
         // A textura já vem em 2k por padrão, então geometria e textura ficam
         // no mesmo patamar. Dá pra subir a textura pra 4k/8k, mas aí o .glb
         // engorda bastante — e ele agora é guardado no nosso banco.
@@ -1104,6 +1114,16 @@ app.post('/api/generate-3d-multi-image', autenticar, exigirNivel('administrador'
         // Mesmo patamar da rota de imagem única. Aqui o "2k" é inclusive o
         // teto: esta rota não aceita 4k no geometry_resolution.
         geometry_resolution: '2k',
+        // O remesh é o que impede o arquivo de sair gigante. No Meshy 7 ele
+        // vem DESLIGADO por padrão, e sem ele a Meshy entrega a malha bruta da
+        // geração: o primeiro modelo gerado com geometry_resolution 2k saiu com
+        // 49 MB, o que estouraria o limite de 0,5 GB do Neon em ~9 modelos.
+        //
+        // A prática normal é justamente esta: gerar denso (o passe 2k captura
+        // bem a forma), reduzir os polígonos, e deixar o detalhe fino por conta
+        // dos mapas de normal — que vêm do enable_pbr, já ligado aqui.
+        should_remesh: true,
+        target_polycount: 50000,
         should_texture: true,
         enable_pbr: true,
       }),
