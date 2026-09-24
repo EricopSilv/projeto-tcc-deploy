@@ -74,7 +74,7 @@
 
 <script setup>
 import '@/assets/components/multi-image-to-3d.css';
-import { ref, computed, onUnmounted } from 'vue';
+import { ref, computed, onUnmounted, onMounted } from 'vue';
 import QRCode from 'qrcode';
 import { generate3DFromImages, checkMultiImageTask } from '@/services/meshy';
 import { consultarCaptura } from '@/services/capturaMovel';
@@ -214,6 +214,9 @@ async function generate() {
 
   try {
     const taskId = await generate3DFromImages(images);
+    // Guarda a geração em andamento: se a pessoa atualizar a página ou fechar
+    // o navegador, o onMounted lá embaixo retoma o acompanhamento daqui.
+    localStorage.setItem(TAREFA_EM_ANDAMENTO, taskId);
     poll(taskId);
   } catch (err) {
     loading.value = false;
@@ -228,11 +231,26 @@ async function poll(taskId) {
   if (task.status === 'success') {
     modelUrl.value = task.output.model_url;
     loading.value = false;
+    localStorage.removeItem(TAREFA_EM_ANDAMENTO);
   } else if (['failed', 'cancelled', 'banned'].includes(task.status)) {
     loading.value = false;
+    localStorage.removeItem(TAREFA_EM_ANDAMENTO);
     alert('Falha ao gerar o modelo.');
   } else {
     setTimeout(() => poll(taskId), 2000);
   }
 }
+// Chave no localStorage onde fica o id da geração em andamento. É o que
+// permite retomar o acompanhamento depois de atualizar a página — sem isso,
+// o id só existia na memória do componente e sumia junto com ela.
+const TAREFA_EM_ANDAMENTO = 'visionfade:geracaoMultiImagem';
+
+// Ao abrir a tela, se havia uma geração em andamento, volta a acompanhá-la.
+onMounted(() => {
+  const pendente = localStorage.getItem(TAREFA_EM_ANDAMENTO);
+  if (!pendente) return;
+
+  loading.value = true;
+  poll(pendente);
+});
 </script>

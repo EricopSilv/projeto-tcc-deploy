@@ -33,7 +33,16 @@
 
       <div v-else class="profile-modelos-grid">
         <div v-for="modelo in modelos" :key="modelo.id" class="profile-modelos-card">
-          <div v-if="!modeloAberto[modelo.id]" class="profile-modelos-thumb-wrap">
+          <!-- Modelo ainda em processamento: a tarefa foi criada na Meshy mas o
+               arquivo ainda não foi baixado. Acontece quando a pessoa sai da
+               página durante a geração — o servidor termina o trabalho depois. -->
+          <div v-if="modelo.status === 'pendente'" class="profile-modelos-thumb-placeholder">
+            Processando...
+          </div>
+          <div v-else-if="modelo.status === 'falhou'" class="profile-modelos-thumb-placeholder">
+            A geração falhou
+          </div>
+          <div v-else-if="!modeloAberto[modelo.id]" class="profile-modelos-thumb-wrap">
             <img
               v-if="modelo.tem_miniatura"
               :src="miniaturaUrl(modelo)"
@@ -49,7 +58,10 @@
           <p class="profile-modelos-tipo">{{ tipoFormatado(modelo.tipo) }}</p>
           <p v-if="modelo.descricao" class="profile-modelos-descricao">{{ modelo.descricao }}</p>
           <p class="profile-modelos-data">{{ dataFormatada(modelo.criado_em) }}</p>
-          <div class="profile-modelos-downloads">
+          <p v-if="modelo.status === 'pendente'" class="profile-modelos-aviso">
+            Ainda sendo preparado. Atualize a página em alguns instantes.
+          </p>
+          <div v-if="modelo.tem_arquivo" class="profile-modelos-downloads">
             <a :href="arquivoUrl(modelo)" download class="profile-modelos-download-link">.glb</a>
             <!-- Os outros formatos continuam apontando direto pra Meshy, que
                  apaga os arquivos depois de 3 dias. Por isso eles só aparecem

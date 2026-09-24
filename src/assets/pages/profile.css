@@ -188,3 +188,8 @@
 .profile-modelos-ver-btn {
   width: 100%;
 }
+.profile-modelos-aviso {
+  color: var(--color-accent);
+  font-size: 0.78rem;
+  margin-top: 0.35rem;
+}

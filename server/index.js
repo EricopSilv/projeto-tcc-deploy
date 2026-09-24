@@ -693,12 +693,18 @@ app.put('/api/modelos/:id/atribuir-cliente', autenticar, exigirNivel('administra
 // cliente vê o que foi ATRIBUÍDO a ele.
 app.get('/api/meus-modelos', autenticar, async (req, res) => {
   try {
+    // Sem await de propósito: a verificação das pendentes não pode atrasar o
+    // carregamento da lista. Um modelo que terminar agora aparece no próximo
+    // refresh — e enquanto isso o card dele aparece como "processando".
+    if (req.usuarioNivelAcesso !== 'cliente') recuperarTarefasPendentes(req.usuarioLogin);
+
     // Repare que arquivo_glb e miniatura NÃO entram no SELECT: são os bytes
     // dos arquivos, e trazer isso pra listagem deixaria a resposta com vários
     // megabytes por modelo. A lista traz só o token, e o navegador busca cada
     // arquivo separadamente (ver /api/arquivo/:token e /api/miniatura/:token).
     const colunas = `id, tipo, descricao, url_modelo, formatos, criado_em, cliente_login,
-                     token_publico, arquivo_glb IS NOT NULL AS tem_arquivo,
+                     token_publico, status,
+                     arquivo_glb IS NOT NULL AS tem_arquivo,
                      miniatura IS NOT NULL AS tem_miniatura`;
 
     const query = req.usuarioNivelAcesso === 'cliente'
@@ -738,6 +744,87 @@ const promptPorTask = new Map();
 // miniatura ainda não tivesse chegado naquele instante, ela ficava nula e
 // nenhuma consulta posterior conseguia corrigir. Com o COALESCE, o que já tem
 // valor é preservado e só o que está nulo é preenchido.
+// --- Tarefas pendentes ---
+//
+// Antes, o backend criava a tarefa na Meshy e esquecia dela: o modelo só era
+// salvo quando o NAVEGADOR perguntava pelo status e recebia "concluído". Se a
+// pessoa atualizasse a página ou fechasse o navegador, ninguém mais perguntava
+// e o modelo se perdia, com os créditos já gastos.
+//
+// Agora a tarefa é registrada no banco no momento em que é criada, com
+// status 'pendente'. Assim o servidor sabe que ela existe e consegue terminar
+// o trabalho depois, mesmo sem o navegador por perto.
+async function registrarTarefaPendente({ usuarioLogin, tipo, descricao, meshyTaskId }) {
+  if (!meshyTaskId) return;
+  try {
+    await pool.query(
+      `INSERT INTO modelos_3d (usuario_login, tipo, descricao, meshy_task_id, status, token_publico)
+       VALUES ($1, $2, $3, $4, 'pendente', $5)
+       ON CONFLICT (meshy_task_id) DO NOTHING`,
+      [usuarioLogin, tipo, descricao || null, meshyTaskId, crypto.randomBytes(16).toString('hex')]
+    );
+  } catch (err) {
+    console.error('Não foi possível registrar a tarefa pendente:', err);
+  }
+}
+
+const URL_TAREFA_POR_TIPO = {
+  imagem: (id) => `https://api.meshy.ai/openapi/v1/image-to-3d/${id}`,
+  multi_imagem: (id) => `https://api.meshy.ai/openapi/v1/multi-image-to-3d/${id}`,
+};
+
+// Vê se as tarefas pendentes desta pessoa já terminaram na Meshy e, se sim,
+// manda baixar o arquivo. É chamada quando ela abre a lista de modelos — o
+// lugar natural onde ela iria procurar pelo resultado.
+//
+// A recuperação acontece assim, e não num processo rodando o tempo todo,
+// porque a instância do Render dorme depois de 15 minutos sem tráfego: um
+// laço em segundo plano simplesmente morreria junto.
+//
+// O corte de 3 dias existe porque a Meshy apaga os arquivos nesse prazo —
+// depois disso não há o que recuperar.
+async function recuperarTarefasPendentes(usuarioLogin) {
+  try {
+    const pendentes = await pool.query(
+      `SELECT meshy_task_id, tipo, descricao FROM modelos_3d
+        WHERE usuario_login = $1 AND status = 'pendente'
+          AND criado_em > now() - interval '3 days'`,
+      [usuarioLogin]
+    );
+
+    for (const linha of pendentes.rows) {
+      const montarUrl = URL_TAREFA_POR_TIPO[linha.tipo];
+      if (!montarUrl) continue;
+
+      const resposta = await fetch(montarUrl(linha.meshy_task_id), {
+        headers: { Authorization: `Bearer ${process.env.MESHY_API_KEY}` },
+      });
+      if (!resposta.ok) continue;
+
+      const data = await resposta.json();
+
+      if (normalizeStatus(data.status) === 'success' && data.model_urls?.glb) {
+        agendarSalvamentoModelo({
+          usuarioLogin,
+          tipo: linha.tipo,
+          descricao: linha.descricao,
+          urlModelo: data.model_urls.glb,
+          formatos: data.model_urls,
+          thumbnailUrl: data.thumbnail_url || data.thumbnail_urls?.front || null,
+          meshyTaskId: linha.meshy_task_id,
+        });
+      } else if (['FAILED', 'CANCELED'].includes(data.status)) {
+        await pool.query(
+          "UPDATE modelos_3d SET status = 'falhou' WHERE meshy_task_id = $1",
+          [linha.meshy_task_id]
+        );
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao recuperar tarefas pendentes:', err);
+  }
+}
+
 // Tarefas cujo download já está em andamento AGORA, neste processo.
 //
 // Sem isso acontece o seguinte: o front-end consulta o status a cada 2s, e
@@ -801,6 +888,9 @@ async function salvarModeloGerado({ usuarioLogin, tipo, descricao, urlModelo, fo
           meshy_task_id, arquivo_glb, miniatura, token_publico)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        ON CONFLICT (meshy_task_id) DO UPDATE SET
+         status        = 'concluido',
+         url_modelo    = EXCLUDED.url_modelo,
+         descricao     = COALESCE(modelos_3d.descricao, EXCLUDED.descricao),
          arquivo_glb   = COALESCE(modelos_3d.arquivo_glb, EXCLUDED.arquivo_glb),
          miniatura     = COALESCE(modelos_3d.miniatura, EXCLUDED.miniatura),
          token_publico = COALESCE(modelos_3d.token_publico, EXCLUDED.token_publico),
@@ -1033,6 +1123,16 @@ app.post('/api/generate-3d-image', autenticar, exigirNivel('administrador'), asy
 
     const data = await response.json();
     console.log('Resposta da Meshy (image-to-3d):', JSON.stringify(data, null, 2));
+
+    // Registra a tarefa ANTES de responder: a partir daqui o servidor sabe
+    // que ela existe, mesmo que a pessoa feche a página logo em seguida.
+    await registrarTarefaPendente({
+      usuarioLogin: req.usuarioLogin,
+      tipo: 'imagem',
+      descricao: 'Gerado a partir de uma imagem',
+      meshyTaskId: data.result,
+    });
+
     res.json({ task_id: data.result });
   } catch (err) {
     console.error(err);
@@ -1131,6 +1231,13 @@ app.post('/api/generate-3d-multi-image', autenticar, exigirNivel('administrador'
 
     const data = await response.json();
     console.log('Resposta da Meshy (multi-image-to-3d):', JSON.stringify(data, null, 2));
+
+    await registrarTarefaPendente({
+      usuarioLogin: req.usuarioLogin,
+      tipo: 'multi_imagem',
+      descricao: 'Gerado a partir de múltiplas imagens',
+      meshyTaskId: data.result,
+    });
 
     if (!response.ok) {
       return res.status(response.status).json({ error: data.message || 'Erro na API da Meshy' });
