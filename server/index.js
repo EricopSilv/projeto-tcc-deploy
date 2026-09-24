@@ -738,6 +738,29 @@ const promptPorTask = new Map();
 // miniatura ainda não tivesse chegado naquele instante, ela ficava nula e
 // nenhuma consulta posterior conseguia corrigir. Com o COALESCE, o que já tem
 // valor é preservado e só o que está nulo é preenchido.
+// Tarefas cujo download já está em andamento AGORA, neste processo.
+//
+// Sem isso acontece o seguinte: o front-end consulta o status a cada 2s, e
+// quando a geração termina o download do .glb começa. Esse download demora,
+// e enquanto ele não grava a linha no banco, a consulta seguinte não vê
+// arquivo nenhum e dispara OUTRO download do mesmo arquivo — e a próxima
+// também. Em poucos segundos há vários downloads do mesmo modelo rodando ao
+// mesmo tempo, o que estoura a memória da instância no Render.
+const downloadsEmAndamento = new Set();
+
+// Dispara o salvamento em segundo plano, SEM travar a resposta ao navegador.
+// Antes isso era feito com await dentro da rota de status: a resposta só saía
+// depois do arquivo inteiro ter sido baixado, e era por isso que a tela ficava
+// parada em 99%.
+function agendarSalvamentoModelo(params) {
+  if (downloadsEmAndamento.has(params.meshyTaskId)) return;
+  downloadsEmAndamento.add(params.meshyTaskId);
+
+  salvarModeloGerado(params)
+    .catch((err) => console.error('Falha ao salvar modelo em segundo plano:', err))
+    .finally(() => downloadsEmAndamento.delete(params.meshyTaskId));
+}
+
 async function salvarModeloGerado({ usuarioLogin, tipo, descricao, urlModelo, formatos, thumbnailUrl, meshyTaskId }) {
   if (!urlModelo) return;
 
@@ -896,7 +919,7 @@ app.get('/api/task/:id', autenticar, async (req, res) => {
     const urlModelo = data.model_urls?.glb || null;
 
     if (statusNormalizado === 'success' && urlModelo) {
-      await salvarModeloGerado({
+      agendarSalvamentoModelo({
         usuarioLogin: req.usuarioLogin,
         tipo: 'texto',
         descricao: promptPorTask.get(clientId),
@@ -1026,7 +1049,7 @@ app.get('/api/task-image/:id', autenticar, async (req, res) => {
         thumbnail_urls: data.thumbnail_urls ?? '(ausente)',
       }));
 
-      await salvarModeloGerado({
+      agendarSalvamentoModelo({
         usuarioLogin: req.usuarioLogin,
         tipo: 'imagem',
         descricao: 'Gerado a partir de uma imagem',
@@ -1111,7 +1134,7 @@ app.get('/api/task-multi-image/:id', autenticar, async (req, res) => {
     const urlModelo = data.model_urls?.glb || null;
 
     if (statusNormalizado === 'success' && urlModelo) {
-      await salvarModeloGerado({
+      agendarSalvamentoModelo({
         usuarioLogin: req.usuarioLogin,
         tipo: 'multi_imagem',
         descricao: 'Gerado a partir de múltiplas imagens',
