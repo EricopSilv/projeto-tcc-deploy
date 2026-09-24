@@ -35,8 +35,8 @@
         <div v-for="modelo in modelos" :key="modelo.id" class="profile-modelos-card">
           <div v-if="!modeloAberto[modelo.id]" class="profile-modelos-thumb-wrap">
             <img
-              v-if="modelo.thumbnail_url"
-              :src="modelo.thumbnail_url"
+              v-if="modelo.tem_miniatura"
+              :src="miniaturaUrl(modelo)"
               :alt="modelo.descricao || 'Modelo 3D'"
               class="profile-modelos-thumb"
             />
@@ -45,15 +45,20 @@
               Ver em 3D
             </button>
           </div>
-          <ModelViewer v-else :src="proxiedUrl(modelo.url_modelo)" />
+          <ModelViewer v-else :src="arquivoUrl(modelo)" />
           <p class="profile-modelos-tipo">{{ tipoFormatado(modelo.tipo) }}</p>
           <p v-if="modelo.descricao" class="profile-modelos-descricao">{{ modelo.descricao }}</p>
           <p class="profile-modelos-data">{{ dataFormatada(modelo.criado_em) }}</p>
           <div class="profile-modelos-downloads">
-            <a :href="modelo.url_modelo" target="_blank" class="profile-modelos-download-link">.glb</a>
-            <a v-if="modelo.formatos?.fbx" :href="modelo.formatos.fbx" target="_blank" class="profile-modelos-download-link">.fbx</a>
-            <a v-if="modelo.formatos?.obj" :href="modelo.formatos.obj" target="_blank" class="profile-modelos-download-link">.obj</a>
-            <a v-if="modelo.formatos?.usdz" :href="modelo.formatos.usdz" target="_blank" class="profile-modelos-download-link">.usdz</a>
+            <a :href="arquivoUrl(modelo)" download class="profile-modelos-download-link">.glb</a>
+            <!-- Os outros formatos continuam apontando direto pra Meshy, que
+                 apaga os arquivos depois de 3 dias. Por isso eles só aparecem
+                 enquanto ainda valem: um link morto é pior que link nenhum. -->
+            <template v-if="formatosExtrasValidos(modelo)">
+              <a v-if="modelo.formatos?.fbx" :href="modelo.formatos.fbx" target="_blank" class="profile-modelos-download-link">.fbx</a>
+              <a v-if="modelo.formatos?.obj" :href="modelo.formatos.obj" target="_blank" class="profile-modelos-download-link">.obj</a>
+              <a v-if="modelo.formatos?.usdz" :href="modelo.formatos.usdz" target="_blank" class="profile-modelos-download-link">.usdz</a>
+            </template>
           </div>
 
           <div v-if="ehAdministrador" class="profile-modelos-atribuir">
@@ -131,8 +136,24 @@ function tipoFormatado(tipo) {
   return LABELS_TIPO[tipo] || tipo;
 }
 
-function proxiedUrl(url) {
-  return `${API_BASE}/api/proxy-model?url=${encodeURIComponent(url)}`;
+// Os arquivos ficam guardados no nosso banco e são servidos por um token
+// aleatório — não mais pela URL da Meshy, que expira em poucos dias.
+function arquivoUrl(modelo) {
+  return `${API_BASE}/api/arquivo/${modelo.token_publico}`;
+}
+
+function miniaturaUrl(modelo) {
+  return `${API_BASE}/api/miniatura/${modelo.token_publico}`;
+}
+
+// Só o .glb fica guardado aqui. Os outros formatos seguem hospedados na Meshy,
+// que apaga os arquivos gerados via API depois de 3 dias — passado esse prazo
+// os links quebram, então paramos de exibi-los.
+const DIAS_VALIDADE_MESHY = 3;
+
+function formatosExtrasValidos(modelo) {
+  const idadeEmDias = (Date.now() - new Date(modelo.criado_em)) / 86400000;
+  return idadeEmDias < DIAS_VALIDADE_MESHY;
 }
 
 function dataFormatada(dataIso) {

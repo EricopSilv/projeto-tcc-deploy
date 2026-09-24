@@ -693,9 +693,17 @@ app.put('/api/modelos/:id/atribuir-cliente', autenticar, exigirNivel('administra
 // cliente vê o que foi ATRIBUÍDO a ele.
 app.get('/api/meus-modelos', autenticar, async (req, res) => {
   try {
-        const query = req.usuarioNivelAcesso === 'cliente'
-      ? 'SELECT id, tipo, descricao, url_modelo, formatos, thumbnail_url, criado_em, cliente_login FROM modelos_3d WHERE cliente_login = $1 ORDER BY criado_em DESC'
-      : 'SELECT id, tipo, descricao, url_modelo, formatos, thumbnail_url, criado_em, cliente_login FROM modelos_3d WHERE usuario_login = $1 ORDER BY criado_em DESC';
+    // Repare que arquivo_glb e miniatura NÃO entram no SELECT: são os bytes
+    // dos arquivos, e trazer isso pra listagem deixaria a resposta com vários
+    // megabytes por modelo. A lista traz só o token, e o navegador busca cada
+    // arquivo separadamente (ver /api/arquivo/:token e /api/miniatura/:token).
+    const colunas = `id, tipo, descricao, url_modelo, formatos, criado_em, cliente_login,
+                     token_publico, arquivo_glb IS NOT NULL AS tem_arquivo,
+                     miniatura IS NOT NULL AS tem_miniatura`;
+
+    const query = req.usuarioNivelAcesso === 'cliente'
+      ? `SELECT ${colunas} FROM modelos_3d WHERE cliente_login = $1 ORDER BY criado_em DESC`
+      : `SELECT ${colunas} FROM modelos_3d WHERE usuario_login = $1 ORDER BY criado_em DESC`;
 
     const resultado = await pool.query(query, [req.usuarioLogin]);
     res.json({ modelos: resultado.rows });
@@ -724,18 +732,84 @@ const promptPorTask = new Map();
 // meshy_task_id porque o front-end fica consultando o status repetidamente
 // até dar "sucesso" — sem isso, cada consulta depois do sucesso duplicaria a
 // linha no banco.
+//
+// O "DO UPDATE ... COALESCE" existe porque antes era "DO NOTHING", e isso
+// congelava para sempre o que estivesse preenchido na PRIMEIRA gravação: se a
+// miniatura ainda não tivesse chegado naquele instante, ela ficava nula e
+// nenhuma consulta posterior conseguia corrigir. Com o COALESCE, o que já tem
+// valor é preservado e só o que está nulo é preenchido.
 async function salvarModeloGerado({ usuarioLogin, tipo, descricao, urlModelo, formatos, thumbnailUrl, meshyTaskId }) {
   if (!urlModelo) return;
 
   try {
-    await pool.query(
-      `INSERT INTO modelos_3d (usuario_login, tipo, descricao, url_modelo, formatos, thumbnail_url, meshy_task_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       ON CONFLICT (meshy_task_id) DO NOTHING`,
-      [usuarioLogin, tipo, descricao || null, urlModelo, formatos ? JSON.stringify(formatos) : null, thumbnailUrl || null, meshyTaskId]
+    // O front-end consulta o status repetidamente, então esta função é
+    // chamada várias vezes para o mesmo modelo. Se o arquivo já foi baixado
+    // antes, não há nada a fazer — sem essa saída antecipada, cada consulta
+    // baixaria o .glb de novo.
+    const existente = await pool.query(
+      'SELECT id, arquivo_glb IS NOT NULL AS tem_arquivo FROM modelos_3d WHERE meshy_task_id = $1',
+      [meshyTaskId]
     );
+    if (existente.rows[0]?.tem_arquivo) return;
+
+    // Baixa os arquivos AGORA, enquanto as URLs da Meshy ainda valem.
+    // Isso é obrigatório, não uma otimização: a Meshy apaga os modelos
+    // gerados via API depois de 3 dias, e as URLs assinadas expiram antes
+    // disso. Guardar só o endereço significa perder o modelo — foi o que
+    // aconteceu com todos os modelos gerados até aqui.
+    const [glb, miniatura] = await Promise.all([
+      baixarArquivo(urlModelo),
+      thumbnailUrl ? baixarArquivo(thumbnailUrl) : Promise.resolve(null),
+    ]);
+
+    if (!glb) {
+      console.error('Modelo não foi salvo: falha ao baixar o .glb da Meshy.', meshyTaskId);
+      return;
+    }
+
+    // Endereço público de cada arquivo usa este token, e não o id da linha:
+    // o id é sequencial e qualquer pessoa adivinharia os modelos dos outros
+    // só contando 1, 2, 3. O token aleatório não dá pra adivinhar.
+    const tokenPublico = crypto.randomBytes(16).toString('hex');
+
+    await pool.query(
+      `INSERT INTO modelos_3d
+         (usuario_login, tipo, descricao, url_modelo, formatos, thumbnail_url,
+          meshy_task_id, arquivo_glb, miniatura, token_publico)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (meshy_task_id) DO UPDATE SET
+         arquivo_glb   = COALESCE(modelos_3d.arquivo_glb, EXCLUDED.arquivo_glb),
+         miniatura     = COALESCE(modelos_3d.miniatura, EXCLUDED.miniatura),
+         token_publico = COALESCE(modelos_3d.token_publico, EXCLUDED.token_publico),
+         thumbnail_url = COALESCE(modelos_3d.thumbnail_url, EXCLUDED.thumbnail_url),
+         formatos      = COALESCE(modelos_3d.formatos, EXCLUDED.formatos)`,
+      [
+        usuarioLogin, tipo, descricao || null, urlModelo,
+        formatos ? JSON.stringify(formatos) : null, thumbnailUrl || null,
+        meshyTaskId, glb, miniatura, tokenPublico,
+      ]
+    );
+
+    console.log(`Modelo ${meshyTaskId} salvo: .glb ${(glb.length / 1048576).toFixed(1)} MB` +
+      (miniatura ? `, miniatura ${(miniatura.length / 1024).toFixed(0)} KB` : ', sem miniatura'));
   } catch (err) {
     console.error('Erro ao salvar modelo gerado no banco:', err);
+  }
+}
+
+// Baixa uma URL e devolve os bytes. Devolve null em vez de lançar erro: a
+// falha em baixar a miniatura não pode impedir o modelo de ser salvo.
+async function baixarArquivo(url) {
+  try {
+    const resposta = await fetch(url);
+    if (!resposta.ok) {
+      console.error('Falha ao baixar arquivo da Meshy:', resposta.status, url.slice(0, 80));
+      return null;
+    }
+    return Buffer.from(await resposta.arrayBuffer());
+  } catch (err) {
+    console.error('Erro ao baixar arquivo da Meshy:', err.message);
+    return null;
   }
 }
 
@@ -828,7 +902,7 @@ app.get('/api/task/:id', autenticar, async (req, res) => {
         descricao: promptPorTask.get(clientId),
         urlModelo,
         formatos: data.model_urls,
-        thumbnailUrl: data.thumbnail_url,
+        thumbnailUrl: data.thumbnail_url || data.thumbnail_urls?.front || null,
         meshyTaskId: actualId,
       });
     }
@@ -901,15 +975,25 @@ app.post('/api/generate-3d-image', autenticar, exigirNivel('administrador'), asy
       },
       body: JSON.stringify({
         image_url: image_base64, // aceita data URI base64 ou uma URL direto
-        // Escolhas feitas pensando em TEMPO de geração:
-        // - "meshy-6-lite" é o modelo leve. O padrão da API é "latest", que
-        //   hoje aponta pro Meshy 7.1 — o de maior detalhamento e, por isso,
-        //   o mais demorado. Num visualizador web a diferença é discreta.
-        // - enable_pbr desligado: ele geraria 3 mapas de textura extras
-        //   (metallic, roughness, normal), o que custa tempo. O padrão da
-        //   própria API é false; estava ligado aqui sem necessidade real.
-        ai_model: 'meshy-6-lite',
-        enable_pbr: false,
+        // Modelo FIXADO numa versão, em vez de "latest". O "latest" é um alvo
+        // móvel: em 18/09/2026 ele deixou de apontar pro Meshy 7 e passou a
+        // apontar pro 7.1, sem nenhuma mudança aqui. Fixar a versão garante
+        // que a qualidade do que você mostra na defesa seja a mesma que você
+        // testou — se a Meshy lançar um 7.2, nada muda sozinho.
+        //
+        // Já testamos o "meshy-6-lite", que é mais rápido, mas a perda de
+        // detalhe na geometria ficou visível demais.
+        ai_model: 'meshy-7.1',
+        // Passe de geometria em 2048³ em vez do "standard" — é o parâmetro
+        // que mais aumenta o detalhe da malha. Custa mais créditos e tempo,
+        // e só funciona a partir do meshy-7.1 (daí a versão fixada acima).
+        // O antigo "ultra_mode: true" da Meshy virou apelido justamente
+        // deste valor.
+        geometry_resolution: '2k',
+        // A textura já vem em 2k por padrão, então geometria e textura ficam
+        // no mesmo patamar. Dá pra subir a textura pra 4k/8k, mas aí o .glb
+        // engorda bastante — e ele agora é guardado no nosso banco.
+        enable_pbr: true,
         should_texture: true,
       }),
     });
@@ -934,13 +1018,21 @@ app.get('/api/task-image/:id', autenticar, async (req, res) => {
     const urlModelo = data.model_urls?.glb || null;
 
     if (statusNormalizado === 'success' && urlModelo) {
+      // TEMPORÁRIO (diagnóstico da miniatura): mostra exatamente quais campos
+      // de thumbnail a Meshy mandou nesta resposta. Pode apagar este
+      // console.log assim que a prévia estiver aparecendo nos cards.
+      console.log('[thumb] image-to-3d:', JSON.stringify({
+        thumbnail_url: data.thumbnail_url ?? '(ausente)',
+        thumbnail_urls: data.thumbnail_urls ?? '(ausente)',
+      }));
+
       await salvarModeloGerado({
         usuarioLogin: req.usuarioLogin,
         tipo: 'imagem',
         descricao: 'Gerado a partir de uma imagem',
         urlModelo,
         formatos: data.model_urls,
-        thumbnailUrl: data.thumbnail_url,
+        thumbnailUrl: data.thumbnail_url || data.thumbnail_urls?.front || null,
         meshyTaskId: req.params.id,
       });
     }
@@ -983,12 +1075,14 @@ app.post('/api/generate-3d-multi-image', autenticar, exigirNivel('administrador'
         // a ordem das demais não importa, mas é bom manter uma convenção
         // no front-end (frente, lado, costas) pra facilitar o uso.
         image_urls: images,
-        // Mesmo raciocínio da rota de imagem única: modelo leve e sem os
-        // mapas PBR extras, pra reduzir o tempo de geração. Antes estava
-        // "latest" (hoje = Meshy 7.1, o mais pesado) com enable_pbr ligado.
-        ai_model: 'meshy-6-lite',
+        // Mesma versão fixada da rota de imagem única — ver o comentário lá
+        // sobre por que não usar "latest".
+        ai_model: 'meshy-7.1',
+        // Mesmo patamar da rota de imagem única. Aqui o "2k" é inclusive o
+        // teto: esta rota não aceita 4k no geometry_resolution.
+        geometry_resolution: '2k',
         should_texture: true,
-        enable_pbr: false,
+        enable_pbr: true,
       }),
     });
 
@@ -1023,7 +1117,7 @@ app.get('/api/task-multi-image/:id', autenticar, async (req, res) => {
         descricao: 'Gerado a partir de múltiplas imagens',
         urlModelo,
         formatos: data.model_urls,
-        thumbnailUrl: data.thumbnail_url,
+        thumbnailUrl: data.thumbnail_url || data.thumbnail_urls?.front || null,
         meshyTaskId: req.params.id,
       });
     }
@@ -1108,6 +1202,51 @@ function urlPermitidaParaProxy(urlStr) {
     return false;
   }
 }
+
+// --- Arquivos guardados no banco ---
+// Sem autenticação de propósito, igual ao /api/proxy-model logo abaixo: estas
+// URLs vão dentro de uma tag <model-viewer> e de uma <img>, e o navegador não
+// manda cabeçalho de autenticação nesses casos. A proteção aqui é o token
+// aleatório do endereço, que não dá pra adivinhar.
+
+app.get('/api/arquivo/:token', async (req, res) => {
+  try {
+    const r = await pool.query(
+      'SELECT arquivo_glb, descricao FROM modelos_3d WHERE token_publico = $1',
+      [req.params.token]
+    );
+    const linha = r.rows[0];
+    if (!linha?.arquivo_glb) return res.status(404).json({ error: 'Arquivo não encontrado' });
+
+    const nome = (linha.descricao || 'modelo').replace(/[^a-zA-Z0-9-_]/g, '_').slice(0, 40);
+    res.set('Content-Type', 'model/gltf-binary');
+    res.set('Content-Disposition', `inline; filename="${nome}.glb"`);
+    // Os arquivos nunca mudam depois de gravados, então vale deixar o
+    // navegador guardar em cache e não baixar de novo a cada visita.
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(linha.arquivo_glb);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar arquivo do modelo' });
+  }
+});
+
+app.get('/api/miniatura/:token', async (req, res) => {
+  try {
+    const r = await pool.query(
+      'SELECT miniatura FROM modelos_3d WHERE token_publico = $1',
+      [req.params.token]
+    );
+    if (!r.rows[0]?.miniatura) return res.status(404).json({ error: 'Miniatura não encontrada' });
+
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(r.rows[0].miniatura);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar miniatura' });
+  }
+});
 
 app.get('/api/proxy-model', async (req, res) => {
   try {
